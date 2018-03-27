@@ -33,6 +33,7 @@ class CRM_Migratie2018_Email {
    * @return bool
    */
   public function createIfNotExists($email) {
+    $email = trim($email);
     $parts = explode('@', $email);
     if (isset($parts[1]) && $parts[1] == 'velt_migratie_2018.be') {
       $email = $parts[0] . '@velt.be';
