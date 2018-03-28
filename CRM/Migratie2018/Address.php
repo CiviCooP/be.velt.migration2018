@@ -87,7 +87,7 @@ class CRM_Migratie2018_Address {
     $bestaand = 'Er was al een adres ' . $this->_addressData['street_address'] . ', dit adres wordt gebruikt en geen nieuw toegevoegd';
     $mislukt = 'Kan geen adres toevoegen voor ' . $this->_addressData['street_address'];
     $kwijt = 'Kan geen adres vinden voor ' .$this->_addressData['street_address'] . ' terwijl count dit wel suggereert!!!';
-    $meerdere = 'Er zijn addressen gevonden ' . $this->_addressData['street_address'] . ', niets overgezet. Los dit handmatig op!';
+    $meerdere = 'Er zijn meerdere addressen gevonden ' . $this->_addressData['street_address'] . ', niets overgezet. Los dit handmatig op!';
     // check if exists and if so, return data (using SQL for performance!)
     $query = 'SELECT COUNT(*) FROM civicrm_address WHERE street_address = %1';
     $count = CRM_Core_DAO::singleValueQuery($query, [1 => [$this->_addressData['street_address'], 'String']]);

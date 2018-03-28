@@ -106,7 +106,13 @@ class CRM_Migratie2018_Membership {
     else {
       $this->_lidData['start_date'] = '2018-01-01';
     }
-    $this->_lidData['join_date'] = $this->_lidData['start_date'];
+    $nowDate = new DateTime();
+    if ($startDate > $nowDate) {
+      $this->_lidData[' join_date'] = $nowDate->format(' Y-m-d');
+    }
+    else {
+      $this->_lidData['join_date'] = $this->_lidData['start_date'];
+    }
     // status afhankelijk van einddatum
     $this->_lidData['status_id'] = $this->generateStatusId($endDate);
   }
