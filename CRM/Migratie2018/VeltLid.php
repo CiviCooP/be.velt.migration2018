@@ -80,7 +80,7 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
     }
     $adres = new CRM_Migratie2018_Address($this->_huishoudenId, $this->_logger);
     if ($adres->prepareAdresData($this->_sourceData)) {
-      $created = $adres->createIfNotExists();
+      $created = $adres->create();
       if (isset($created['id'])) {
         $this->_adresId = $created['id'];
       }

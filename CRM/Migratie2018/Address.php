@@ -83,43 +83,14 @@ class CRM_Migratie2018_Address {
    *
    * @return array|bool
    */
-  public function createIfNotExists() {
-    $bestaand = 'Er was al een adres ' . $this->_addressData['street_address'] . ', dit adres wordt gebruikt en geen nieuw toegevoegd';
-    $mislukt = 'Kan geen adres toevoegen voor ' . $this->_addressData['street_address'];
-    $kwijt = 'Kan geen adres vinden voor ' .$this->_addressData['street_address'] . ' terwijl count dit wel suggereert!!!';
-    $meerdere = 'Er zijn meerdere addressen gevonden ' . $this->_addressData['street_address'] . ', niets overgezet. Los dit handmatig op!';
-    // check if exists and if so, return data (using SQL for performance!)
-    $query = 'SELECT COUNT(*) FROM civicrm_address WHERE street_address = %1';
-    $count = CRM_Core_DAO::singleValueQuery($query, [1 => [$this->_addressData['street_address'], 'String']]);
-    switch ($count) {
-      case 0:
-        // create address if not exists
-        try {
-          $created = civicrm_api3('Address', 'create', $this->_addressData);
-          return $created['values'][$created['id']];
-        }
-        catch (CiviCRM_API3_Exception $ex) {
-          $this->_logger->logMessage('Fout', $mislukt . ' met api fout ' .$ex->getMessage());
-          return FALSE;
-        }
-        break;
-
-      case 1:
-        $this->_logger->logMessage('Waarschuwing', $bestaand);
-        try {
-          $address = civicrm_api3('Address', 'getsingle', $this->_addressData);
-          return $address;
-        }
-        catch (CiviCRM_API3_Exception $ex) {
-          $this->_logger->logMessage('Fout', $kwijt);
-          return FALSE;
-        }
-        break;
-
-      default:
-        $this->_logger->logMessage('Fout', $meerdere);
-        return FALSE;
-        break;
+  public function create() {
+    try {
+      $created = civicrm_api3('Address', 'create', $this->_addressData);
+      return $created['values'][$created['id']];
+    }
+    catch (CiviCRM_API3_Exception $ex) {
+      $this->_logger->logMessage('Fout', 'Kan geen adres toevoegen voor ' . $this->_addressData['street_address'] . ' met api fout ' .$ex->getMessage());
+      return FALSE;
     }
   }
 
