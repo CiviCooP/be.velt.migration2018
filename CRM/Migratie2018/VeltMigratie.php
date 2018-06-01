@@ -10,7 +10,8 @@
 abstract class CRM_Migratie2018_VeltMigratie {
 
   protected $_logger = NULL;
-  protected $_sourceData = array();
+  protected $_sourceData = [];
+  protected $_bankAccountReferenceType = NULL;
 
   /**
    * CRM_Migration2018_VeltMigratie constructor.
@@ -21,6 +22,17 @@ abstract class CRM_Migratie2018_VeltMigratie {
   public function __construct($sourceData = NULL, $logger = NULL) {
     $this->_sourceData = CRM_Veltbasis_Utils::moveDaoToArray($sourceData);
     $this->_logger = $logger;
+    try {
+      $this->_bankAccountReferenceType = civicrm_api3('OptionValue', 'getvalue', [
+        'option_group_id' => 'civicrm_banking.reference_types',
+        'name' => 'IBAN',
+        'return' => 'value',
+      ]);
+
+    }
+    catch (CiviCRM_API3_Exception $ex) {
+      Civi::log()->error('Could not find IBAN banking account reference type in ' .__METHOD__);
+    }
   }
 
   /**
@@ -100,6 +112,15 @@ abstract class CRM_Migratie2018_VeltMigratie {
     catch (CiviCRM_API3_Exception $ex) {
       return FALSE;
     }
+  }
+
+  /**
+   * Getter for bank account reference type
+   *
+   * @return array|null
+   */
+  public function getBankAccountReferenceType() {
+    return $this->_bankAccountReferenceType;
   }
 
   /**

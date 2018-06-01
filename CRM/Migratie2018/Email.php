@@ -36,7 +36,7 @@ class CRM_Migratie2018_Email {
     $email = trim($email);
     $parts = explode('@', $email);
     if (isset($parts[1]) && $parts[1] == 'velt_migratie_2018.be') {
-      $email = $parts[0] . '@velt.be';
+      $email = trim($parts[0] . '@velt.be');
     }
     if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
       $query = 'SELECT COUNT(*) FROM civicrm_email WHERE contact_id = %1 AND email = %2';

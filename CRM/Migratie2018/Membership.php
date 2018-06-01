@@ -20,6 +20,7 @@ class CRM_Migratie2018_Membership {
   private $_membershipId = NULL;
   private $_bankTransferTypeId = NULL;
   private $_completedContributionStatusId = NULL;
+  private $_historischCustomField = NULL;
 
   /**
    * CRM_Migratie2018_Membership constructor.
@@ -81,6 +82,17 @@ class CRM_Migratie2018_Membership {
     catch (CiviCRM_API3_Exception $ex) {
       $this->_logger->logMessage('Fout', 'Kon geen payment method met name Bank Transfer vinden in ' . __METHOD__);
     }
+    try {
+      $customFieldId = civicrm_api3('CustomField', 'getvalue', [
+        'return' => "id",
+        'name' => "velt_oud_lid_id",
+        'custom_group_id' => "velt_oud_lid_data",
+      ]);
+      $this->_historischCustomField = 'custom_'.$customFieldId;
+    }
+    catch (CiviCRM_API3_Exception $ex) {
+      $this->_logger->logMessage('Fout', 'Kon custom veld voor historisch lidmaatschapsnummer niet vinden in ' . __METHOD__);
+    }
   }
 
   /**
@@ -96,6 +108,9 @@ class CRM_Migratie2018_Membership {
       'is_test' => 0,
       'is_pay_later' => 0,
     ];
+    if (isset($sourceData['lidmaatschap_id']) && !empty($sourceData['lidmaatschap_id'])) {
+      $this->_lidData[$this->_historischCustomField] = $sourceData['lidmaatschap_id'];
+    }
     if (isset($sourceData['membership_end_date']) && !empty($sourceData['membership_end_date'])) {
       $endDate = new DateTime($sourceData['membership_end_date']);
       $startDate = new DateTime($sourceData['membership_end_date']);
@@ -154,7 +169,7 @@ class CRM_Migratie2018_Membership {
     switch ($count) {
       case 0:
         try {
-          $created = civicrm_api3('Membership', 'Create', $this->_lidData);
+          $created = civicrm_api3('Membership', 'create', $this->_lidData);
           $this->_membershipId = $created['id'];
           // als current ook betaling aanmaken
           if ($this->_lidData['status_id'] == $this->_currentStatusId) {

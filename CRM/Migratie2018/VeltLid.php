@@ -85,6 +85,48 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
         $this->_adresId = $created['id'];
       }
     }
+    if (!empty($this->_sourceData['iban'])) {
+      $this->processBankAccount();
+    }
+  }
+  /**
+   * Method om bankrekening aan te maken
+   */
+  private function processBankAccount() {
+    // eerst leeg bank account aanmaken voor contact
+    try {
+      $createdBankAccount = civicrm_api3('BankingAccount', 'create', [
+        'contact_id' => $this->_huishoudenId,
+        'data_parsed' => '{}',
+      ]);
+      $bankAccountId = $createdBankAccount['id'];
+      $bankData = [];
+      // indien mogelijk land bijwerken
+      $country = substr(trim($this->_sourceData['iban']), 0, 2);
+      if ($country == 'BE' || $country = 'NL') {
+        $bankData['country'] = $country;
+      }
+      // indien nodig BIC bijwerken
+      if (!empty($this->_sourceData['bic'])) {
+        $bankData['BIC'] = trim($this->_sourceData['bic']);
+      }
+      if (!empty($bankData)) {
+        $bankBao = new CRM_Banking_BAO_BankAccount();
+        $bankBao->get('id', $bankAccountId);
+        $bankBao->setDataParsed($bankData);
+        $bankBao->save();
+      }
+      // update/create bank reference
+      $referenceParams = [
+        'reference' => trim($this->_sourceData['iban']),
+        'reference_type_id' => $this->getBankAccountReferenceType(),
+        'ba_id' => $bankAccountId,
+      ];
+      civicrm_api3('BankingAccountReference', 'create', $referenceParams);
+    }
+    catch (CiviCRM_API3_Exception $ex) {
+      $this->_logger->logMessage('Warning', 'Kon geen bankrekeningnummer ' .$this->_sourceData['iban'] . ' toevoegen bij huishouden ' . $this->_huishoudenId);
+    }
   }
 
   /**
