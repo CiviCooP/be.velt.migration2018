@@ -13,6 +13,7 @@ class CRM_Migratie2018_Membership {
   private $_contactId = NULL;
   private $_logger = NULL;
   private $_adresLidType = [];
+  private $_levenLidType = [];
   private $_ownerId = NULL;
   private $_currentStatusId = NULL;
   private $_graceStatusId = NULL;
@@ -25,7 +26,7 @@ class CRM_Migratie2018_Membership {
   /**
    * CRM_Migratie2018_Membership constructor.
    *
-   * @param array $contactId
+   * @param int $contactId
    * @param object $logger
    *
    */
@@ -37,6 +38,7 @@ class CRM_Migratie2018_Membership {
     }
     $this->_contactId = $contactId;
     $this->_adresLidType = CRM_Veltbasis_Config::singleton()->getAdresLidType();
+    $this->_levenLidType = CRM_Veltbasis_Config::singleton()->getLevenLidType();
     $this->_ownerId = CRM_Veltbasis_Config::singleton()->getVeltContactId();
     try {
       $membershipStatuses = civicrm_api3('MembershipStatus', 'get', [
@@ -86,7 +88,7 @@ class CRM_Migratie2018_Membership {
       $customFieldId = civicrm_api3('CustomField', 'getvalue', [
         'return' => "id",
         'name' => "velt_oud_lid_id",
-        'custom_group_id' => "velt_oud_lid_data",
+        'custom_group_id' => "velt_lid_data",
       ]);
       $this->_historischCustomField = 'custom_'.$customFieldId;
     }
@@ -130,6 +132,52 @@ class CRM_Migratie2018_Membership {
     }
     // status afhankelijk van einddatum
     $this->_lidData['status_id'] = $this->generateStatusId($endDate);
+  }
+
+  /**
+   * Method om lidmaatschap voor het leven data voor te bereiden
+   *
+   * @param $sourceData
+   *
+   * @return bool|array
+   */
+  public function createLidLeven($sourceData) {
+    $this->_lidData = [
+      'contact_id' => $this->_contactId,
+      'membership_type_id' => $this->_levenLidType['id'],
+      'is_test' => 0,
+      'is_pay_later' => 0,
+    ];
+    if (isset($sourceData['lidnummer']) && !empty($sourceData['lidnummer'])) {
+      $this->_lidData[$this->_historischCustomField] = $sourceData['lidnummer'];
+    }
+    // eerst kijken of het al bestaat (sql vanwege performance)
+    $query = "SELECT COUNT(*) FROM civicrm_membership WHERE contact_id = %1 AND membership_type_id = %2";
+    $count = CRM_Core_DAO::singleValueQuery($query, [
+      1 => [$this->_contactId, 'Integer'],
+      2 => [$this->_levenLidType['id'], 'Integer'],
+    ]);
+    switch ($count) {
+      case 0:
+        try {
+          $created = civicrm_api3('Membership', 'create', $this->_lidData);
+          $this->_membershipId = $created['id'];
+          return $created;
+        }
+        catch (CiviCRM_API3_Exception $ex) {
+          $this->_logger->logMessage('Fout', 'Kon geen lidmaatschap voor het leven toevoegen voor ' . $this->_contactId . ', melding van API Membership Create : ' . $ex->getMessage());
+          return FALSE;
+        }
+        break;
+      case 1:
+        $this->_logger->logMessage('Waarschuwing', 'Er is al een lidmaatschap van het type Lid voor het Leven voor ' . $huishoudenId);
+        return FALSE;
+        break;
+      default:
+        $this->_logger->logMessage('Fout', 'Er zijn al meerdere lidmaatschappen voor het leven voor ' . $this->_contactId . ', los handmatig op!');
+        return FALSE;
+        break;
+    }
   }
 
   /**

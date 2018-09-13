@@ -199,7 +199,13 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
    */
   private function validPersoon($persoon) {
     if (!$persoon['first_name'] && !$persoon['last_name']) {
-      $this->_logger->logMessage('Fout', 'Persoon met id ' . $persoon['id'] . '  heeft geen voor- en achternaam, niet gemigreerd!');
+      if (isset($persoon['id'])) {
+        $this->_logger->logMessage('Fout', 'Persoon met id ' . $persoon['id'] . '  heeft geen voor- en achternaam, niet gemigreerd!');
+      }
+      else {
+        $this->_logger->logMessage('Fout', ts('Persoon met waarden : ' . serialize($persoon) . '  heeft geen voor- en achternaam, niet gemigreerd!'));
+
+      }
       return FALSE;
     }
     return TRUE;
@@ -223,6 +229,60 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
     }
     $this->_migrateAdresId = $this->_sourceData['lidmaatschap_id'];
     return TRUE;
+  }
+
+  /** Method om huishoudenId op te halen met lid id
+   *
+   * @param $lidId
+   * @return int|bool
+   */
+  private function getHuishoudenIdMetLidId($lidId) {
+    $lidCustomGroup = CRM_Veltbasis_Config::singleton()->getHistLidCustomGroup();
+    foreach ($lidCustomGroup['custom_fields'] as $customField) {
+      if ($customField['name'] == 'velt_oud_lid_id') {
+        $oudLidColumn = $customField['column_name'];
+      }
+    }
+    // eerst lidmaatschap id van nieuwe lidmaatschap ophalen
+    $memberQuery = "SELECT entity_id FROM " . $lidCustomGroup['table_name'] . " WHERE " . $oudLidColumn . " = %1";
+    $membershipId = CRM_Core_DAO::singleValueQuery($memberQuery, [1 => [$lidId, 'String']]);
+    if ($membershipId) {
+      // nu huishouden id ophalen
+      $huishoudenQuery = "SELECT contact_id FROM civicrm_membership WHERE id = %1";
+      $huishoudenId = CRM_Core_DAO::singleValueQuery($huishoudenQuery, [1 => [$membershipId, 'Integer']]);
+      if ($huishoudenId) {
+        return $huishoudenId;
+      }
+    }
+    return FALSE;
+  }
+
+  /**
+   * Method om lid voor het leven te migreren naar of bestaand of nieuw huishouden
+   *
+   * @return bool
+   */
+  public function processLevenLid() {
+    // check of contact al bestaat met oud lidnummer, zo niet maak huishouden + persoon aan
+    $huishoudenId = $this->getHuishoudenIdMetLidId($this->_sourceData['lidnummer']);
+    if (!$huishoudenId) {
+      $huishouden = new CRM_Migratie2018_Contact('Household', $this->_logger);
+      $huishoudenData = [
+        'afdeling_id' => $this->_sourceData['afdeling'],
+        'household_name' => $this->_sourceData['voornaam'] . " " . $this->_sourceData['achternaam'],
+      ];
+      $huishouden->prepareHuishoudenData($huishoudenData);
+      $created = $huishouden->create();
+      if (isset($created['id'])) {
+        $huishoudenId = $created['id'];
+      }
+      $adres = new CRM_Migratie2018_Address($huishoudenId, $this->_logger);
+      $adres->prepareFileMakerAdresData($this->_sourceData);
+      $adres->create();
+    }
+    // voeg lidmaatschap voor het leven toe aan huishouden
+    $membership = new CRM_Migratie2018_Membership($huishoudenId, $this->_logger);
+    $membership->createLidLeven($this->_sourceData);
   }
 
 }

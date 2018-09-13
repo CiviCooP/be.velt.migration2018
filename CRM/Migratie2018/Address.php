@@ -77,6 +77,71 @@ class CRM_Migratie2018_Address {
   }
 
   /**
+   * Method om data klaar te zetten voor adres
+   *
+   * @param $sourceData
+   * @return bool
+   */
+  public function prepareFileMakerAdresData($sourceData) {
+    if (empty($this->_contactId)) {
+      $this->_logger->logMessage('Fout', 'Geen contact id voor adres in ' . __METHOD__);
+      return FALSE;
+    }
+    $locationType = new CRM_Migratie2018_LocationType();
+    $this->_addressData = [
+      'location_type_id' => $locationType->determineForContact('address', $this->_contactId),
+      'is_primary' => CRM_Migratie2018_VeltMigratie::setIsPrimary('address', $this->_contactId),
+      'contact_id' => $this->_contactId,
+    ];
+    $streetAddress = [];
+    if (isset($sourceData['straat'])) {
+      $streetAddress[] = $sourceData['straat'];
+    }
+    if (isset($sourceData['huisnummer']) && !empty($sourceData['huis'])) {
+      $streetAddress[] = (string) $sourceData['huisnummer'];
+    }
+    if (isset($sourceData['bus']) && !empty($sourceData['bus'])) {
+      $streetAddress[] = $sourceData['bus'];
+    }
+    if (!empty($streetAddress)) {
+      $this->_addressData['street_address'] = implode(" ", $streetAddress);
+    }
+    $this->_addressData['gemeente'] = $this->getCity($sourceData);
+    if (isset($sourceData['postcode'])) {
+      $this->_addressData['postal_code'] = $sourceData['postcode'];
+    }
+    if (isset($sourceData['land'])) {
+      $countryIso = $this->translateFileMakerCountry($sourceData['land']);
+      try {
+        $this->_addressData['country_id'] = civicrm_api3('Country', 'getvalue', [
+          'return' => 'id',
+          'iso_code' => $countryIso,
+        ]);
+      }
+      catch (CiviCRM_API3_Exception $ex) {
+      }
+    }
+    return TRUE;
+  }
+
+  /**
+   * Method om file maker land te vertalen naar iso code
+   *
+   * @param $fileMakerLand
+   * @return string
+   */
+  private function translateFileMakerCountry($fileMakerLand) {
+    switch ($fileMakerLand) {
+      case 0:
+        return 'BE';
+        break;
+      default:
+        return 'NL';
+        break;
+    }
+  }
+
+  /**
    * Method om woonplaats te vullen. Als Nederland, haal uit postcode tabel als mogelijk
    *
    * @param $sourceData
@@ -102,7 +167,7 @@ class CRM_Migratie2018_Address {
                 WHERE postcode_nr = %1 AND postcode_letter = %2";
               $woonplaats = CRM_Core_DAO::singleValueQuery($query, [
                 1 => [$postCijfers, 'Integer'],
-                2 => [$postLetters, ' String'],
+                2 => [$postLetters, 'String'],
               ]);
               if (!empty($woonplaats)) {
                 $result = $woonplaats;
@@ -146,16 +211,19 @@ class CRM_Migratie2018_Address {
       $master = civicrm_api3('Address', 'getsingle', ['id' => $addressId]);
       try {
         $locationType = new CRM_Migratie2018_LocationType();
-        civicrm_api3('Address', 'Create', [
+        $adresData = [
           'contact_id' => $this->_contactId,
           'master_id' => $addressId,
           'location_type_id' => $locationType->determineForContact('address', $this->_contactId),
           'street_address' => $master['street_address'],
           'city' => $master['city'],
           'postal_code' => $master['postal_code'],
-          'country_id' => $master['country_id'],
           'is_primary' => CRM_Migratie2018_VeltMigratie::setIsPrimary('address', $this->_contactId),
-        ]);
+        ];
+        if (isset($master['country_id'])) {
+          $adresData['country_id'] = $master['country_id'];
+        }
+        civicrm_api3('Address', 'Create', $adresData);
       }
       catch (CiviCRM_API3_Exception $ex) {
         $this->_logger->logMessage('Waarschuwing', 'Kan geen gedeeld adres toevoegen voor adres ' .$addressId . ' en contact ' .
