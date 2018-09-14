@@ -1,4 +1,6 @@
 <?php
+use CRM_Migratie2018_ExtensionUtil as E;
+
 /**
  * Class migratie Membership
  *
@@ -126,13 +128,14 @@ class CRM_Migratie2018_Membership {
       $this->_lidData['start_date'] = '2018-01-01';
     }
     $nowDate = new DateTime();
-    if ($startDate > $nowDate) {
-      $this->_lidData[' join_date'] = $nowDate->format(' Y-m-d');
-    }
-    else {
+    $this->_lidData = $nowDate->format('Y-m-d');
+    if (isset($startDate) && $startDate <= $nowDate) {
       $this->_lidData['join_date'] = $this->_lidData['start_date'];
     }
     // status afhankelijk van einddatum
+    if (!isset($endDate)) {
+      $endDate = '';
+    }
     $this->_lidData['status_id'] = $this->generateStatusId($endDate);
   }
 
@@ -210,6 +213,7 @@ class CRM_Migratie2018_Membership {
    * @return mixed
    */
   public function createIfNotExists() {
+    Civi::log()->debug(E::ts('lidmaatschapsdata is ' . serialize($this->_lidData)));
     // eerst kijken of het al bestaat (sql vanwege performance)
     $query = "SELECT COUNT(*) FROM civicrm_membership WHERE contact_id = %1 AND membership_type_id = %2";
     $count = CRM_Core_DAO::singleValueQuery($query, [
