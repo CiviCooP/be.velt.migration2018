@@ -213,17 +213,19 @@ class CRM_Migratie2018_Membership {
    * @return mixed
    */
   public function createIfNotExists() {
-    Civi::log()->debug(E::ts('lidmaatschapsdata is ' . serialize($this->_lidData)));
     // eerst kijken of het al bestaat (sql vanwege performance)
     $query = "SELECT COUNT(*) FROM civicrm_membership WHERE contact_id = %1 AND membership_type_id = %2";
     $count = CRM_Core_DAO::singleValueQuery($query, [
       1 => [$this->_contactId, 'Integer'],
       2 => [$this->_adresLidType['id'], 'Integer'],
     ]);
+    Civi::log()->debug('Count van het lidmaatschap is ' . $count);
     switch ($count) {
       case 0:
         try {
+          Civi::log()->debug(E::ts('Probeert lidmaatschap te maken met ' . serialize($this->_lidData)));
           $created = civicrm_api3('Membership', 'create', $this->_lidData);
+          Civi::log()->debug('created id is ' . $created['id']);
           $this->_membershipId = $created['id'];
           // als current ook betaling aanmaken
           if ($this->_lidData['status_id'] == $this->_currentStatusId) {

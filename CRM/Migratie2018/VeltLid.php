@@ -174,20 +174,22 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
       if ($this->validPersoon($migratiePersoon)) {
         $persoon->preparePersoonData($migratiePersoon);
         $newPersoon = $persoon->create();
-        $persoon->createHuishoudenRelationship($newPersoon['id'], $this->_huishoudenId);
-        $adres = new CRM_Migratie2018_Address($newPersoon['id'], $this->_logger);
-        $adres->createSharedAddress($this->_adresId);
-        if (!empty($migratiePersoon['email'])) {
-          $email = new CRM_Migratie2018_Email($newPersoon['id'], $this->_logger);
-          $email->createIfNotExists($migratiePersoon['email']);
-        }
-        if (!empty($migratiePersoon['phone'])) {
-          $phone = new CRM_Migratie2018_Phone($newPersoon['id'], 'phone', $this->_logger);
-          $phone->createIfNotExists($migratiePersoon['phone']);
-        }
-        if (!empty($migratiePersoon['fax'])) {
-          $fax = new CRM_Migratie2018_Phone($newPersoon['id'], 'fax', $this->_logger);
-          $fax->createIfNotExists($migratiePersoon['fax']);
+        if (isset($newPersoon['id'])) {
+          $persoon->createHuishoudenRelationship($newPersoon['id'], $this->_huishoudenId);
+          $adres = new CRM_Migratie2018_Address($newPersoon['id'], $this->_logger);
+          $adres->createSharedAddress($this->_adresId);
+          if (!empty($migratiePersoon['email'])) {
+            $email = new CRM_Migratie2018_Email($newPersoon['id'], $this->_logger);
+            $email->createIfNotExists($migratiePersoon['email']);
+          }
+          if (!empty($migratiePersoon['phone'])) {
+            $phone = new CRM_Migratie2018_Phone($newPersoon['id'], 'phone', $this->_logger);
+            $phone->createIfNotExists($migratiePersoon['phone']);
+          }
+          if (!empty($migratiePersoon['fax'])) {
+            $fax = new CRM_Migratie2018_Phone($newPersoon['id'], 'fax', $this->_logger);
+            $fax->createIfNotExists($migratiePersoon['fax']);
+          }
         }
       }
     }
