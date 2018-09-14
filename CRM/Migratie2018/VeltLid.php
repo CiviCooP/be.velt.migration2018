@@ -29,7 +29,6 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
    * @return bool
    */
   public function migrate() {
-    Civi::log()->debug(E::ts('Data is ' . serialize($this->_sourceData)));
     if ($this->validSourceData() == TRUE) {
       // haal personen op
       $this->getPersonen();
@@ -39,11 +38,9 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
       $this->processPersonen();
       // maak lidmaatschap aan voor huishouden
       $this->processLidmaatschap();
-      Civi::log()->debug('Gaat nu proberen het migratie record voor succes bij te werken');
       $this->updateHuishoudenSuccess();
       return TRUE;
     }
-    Civi::log()->debug('Gaat nu proberen het migratie record voor fout bij te werken');
     $this->updateHuishoudenError();
     return FALSE;
   }
