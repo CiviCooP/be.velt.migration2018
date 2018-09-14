@@ -47,6 +47,23 @@ class CRM_Migratie2018_Contact {
   }
 
   /**
+   * Method om data voor de organisatie voor te bereiden
+   *
+   * @param array $sourceData
+   */
+  public function prepareOrganisatieData($sourceData) {
+    $this->_contactData = ['contact_type' => $this->_contactType];
+    $orgName = [];
+    if (isset($sourceData['voornaam']) && !empty($sourceData['voornaam'])) {
+      $orgName[] = $sourceData['voornaam'];
+    }
+    if (isset($sourceData['achternaam']) && !empty($sourceData['achternaam'])) {
+      $orgName[] = $sourceData['achternaam'];
+    }
+    $this->_contactData['organization_name'] = implode(" ", $orgName);
+  }
+
+  /**
    * Method om relatie tussen persoon en huishouden toe te voegen
    *
    * @param $individualId
@@ -96,23 +113,27 @@ class CRM_Migratie2018_Contact {
     $this->_contactData = [
       'contact_type' => $this->_contactType,
       'first_name' => $persoonData['first_name'],
-      'last_name' => $persoonData['last_name'],
     ];
+    if (isset($persoon['last_name'])) {
+      $this->_contactData = $persoonData['last_name'];
+    }
     if (isset($persoonData['gender'])) {
       $persoonData['gender'] = strtolower($persoonData['gender']);
     }
-    switch ($persoonData['gender']) {
-      case 'm':
-        $this->_contactData['gender_id'] = 2;
-        break;
+    if (isset($persoonData['gender'])) {
+      switch ($persoonData['gender']) {
+        case 'm':
+          $this->_contactData['gender_id'] = 2;
+          break;
 
-      case 'v':
-        $this->_contactData['gender_id'] = 1;
-        break;
+        case 'v':
+          $this->_contactData['gender_id'] = 1;
+          break;
 
-      default:
-        $this->_contactData['gender_id'] = 3;
-        break;
+        default:
+          $this->_contactData['gender_id'] = 3;
+          break;
+      }
     }
     if (!empty($persoonData['birth_date'])) {
       try {
@@ -163,6 +184,11 @@ class CRM_Migratie2018_Contact {
         case 'Individual':
           $this->_logger->logMessage('Fout', 'Kan geen persoon toevoegen met naam ' .
             $this->_contactData['first_name'] . ' ' . $this->_contactData['last_name'] . ', api fout ' .
+            $ex->getMessage());
+          break;
+        case 'Organization':
+          $this->_logger->logMessage('Fout', 'Kan geen organisatie toevoegen met naam ' .
+            $this->_contactData['organization_name'] . ', api fout ' .
             $ex->getMessage());
           break;
       }

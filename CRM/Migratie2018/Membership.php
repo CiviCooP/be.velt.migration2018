@@ -14,6 +14,7 @@ class CRM_Migratie2018_Membership {
   private $_logger = NULL;
   private $_adresLidType = [];
   private $_levenLidType = [];
+  private $_gratisLidType = [];
   private $_ownerId = NULL;
   private $_currentStatusId = NULL;
   private $_graceStatusId = NULL;
@@ -39,6 +40,7 @@ class CRM_Migratie2018_Membership {
     $this->_contactId = $contactId;
     $this->_adresLidType = CRM_Veltbasis_Config::singleton()->getAdresLidType();
     $this->_levenLidType = CRM_Veltbasis_Config::singleton()->getLevenLidType();
+    $this->_gratisLidType = CRM_Veltbasis_Config::singleton()->getGratisLidType();
     $this->_ownerId = CRM_Veltbasis_Config::singleton()->getVeltContactId();
     try {
       $membershipStatuses = civicrm_api3('MembershipStatus', 'get', [
@@ -170,7 +172,7 @@ class CRM_Migratie2018_Membership {
         }
         break;
       case 1:
-        $this->_logger->logMessage('Waarschuwing', 'Er is al een lidmaatschap van het type Lid voor het Leven voor ' . $huishoudenId);
+        $this->_logger->logMessage('Waarschuwing', 'Er is al een lidmaatschap van het type Lid voor het Leven voor ' . $this->_contactId);
         return FALSE;
         break;
       default:
@@ -268,8 +270,54 @@ class CRM_Migratie2018_Membership {
 
     }
     catch (CiviCRM_API3_Exception $ex) {
-      $this->_logger->logMessage('Fout', 'Kon geen contribution en membership payment toevoegen voor ' . $year . ' en contact ' . $this->_contactId);
+      $this->_logger->logMessage('Fout', 'Kon geen contribution en membership payment toevoegen voor ' . $paymentDate . ' en contact ' . $this->_contactId);
       return FALSE;
     }
   }
+
+  /**
+   * Method om gratis en ruil lid toe te voegen
+   *
+   * @param $sourceData
+   * @return array|bool
+   */
+  public function createGratisLid($sourceData) {
+    $this->_lidData = [
+      'contact_id' => $this->_contactId,
+      'membership_type_id' => $this->_gratisLidType['id'],
+      'is_test' => 0,
+      'is_pay_later' => 0,
+    ];
+    if (isset($sourceData['lidnummer']) && !empty($sourceData['lidnummer'])) {
+      $this->_lidData[$this->_historischCustomField] = $sourceData['lidnummer'];
+    }
+    // eerst kijken of het al bestaat (sql vanwege performance)
+    $query = "SELECT COUNT(*) FROM civicrm_membership WHERE contact_id = %1 AND membership_type_id = %2";
+    $count = CRM_Core_DAO::singleValueQuery($query, [
+      1 => [$this->_contactId, 'Integer'],
+      2 => [$this->_gratisLidType['id'], 'Integer'],
+    ]);
+    switch ($count) {
+      case 0:
+        try {
+          $created = civicrm_api3('Membership', 'create', $this->_lidData);
+          $this->_membershipId = $created['id'];
+          return $created;
+        }
+        catch (CiviCRM_API3_Exception $ex) {
+          $this->_logger->logMessage('Fout', 'Kon geen gratis & ruil lidmaatschap toevoegen voor ' . $this->_contactId . ', melding van API Membership Create : ' . $ex->getMessage());
+          return FALSE;
+        }
+        break;
+      case 1:
+        $this->_logger->logMessage('Waarschuwing', 'Er is al een lidmaatschap van het type Gratis & Ruil voor ' . $this->_contactId);
+        return FALSE;
+        break;
+      default:
+        $this->_logger->logMessage('Fout', 'Er zijn al meerdere gratis en ruil lidmaatschappen voor ' . $this->_contactId . ', los handmatig op!');
+        return FALSE;
+        break;
+    }
+  }
+
 }

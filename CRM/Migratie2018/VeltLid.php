@@ -231,12 +231,12 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
     return TRUE;
   }
 
-  /** Method om huishoudenId op te halen met lid id
+  /** Method om contact od op te halen met lid id
    *
    * @param $lidId
    * @return int|bool
    */
-  private function getHuishoudenIdMetLidId($lidId) {
+  private function getContactIdMetLidId($lidId) {
     $lidCustomGroup = CRM_Veltbasis_Config::singleton()->getHistLidCustomGroup();
     foreach ($lidCustomGroup['custom_fields'] as $customField) {
       if ($customField['name'] == 'velt_oud_lid_id') {
@@ -264,7 +264,7 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
    */
   public function processLevenLid() {
     // check of contact al bestaat met oud lidnummer, zo niet maak huishouden + persoon aan
-    $huishoudenId = $this->getHuishoudenIdMetLidId($this->_sourceData['lidnummer']);
+    $huishoudenId = $this->getContactIdMetLidId($this->_sourceData['lidnummer']);
     if (!$huishoudenId) {
       $huishouden = new CRM_Migratie2018_Contact('Household', $this->_logger);
       $huishoudenData = [
@@ -276,13 +276,152 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
       if (isset($created['id'])) {
         $huishoudenId = $created['id'];
       }
+    }
+    if ($huishoudenId) {
       $adres = new CRM_Migratie2018_Address($huishoudenId, $this->_logger);
       $adres->prepareFileMakerAdresData($this->_sourceData);
-      $adres->create();
+      $newAdresId = $adres->create();
+      $persoon = new CRM_Migratie2018_Contact('Individual', $this->_logger);
+      $persoonData = [
+        'first_name' => $this->_sourceData['voornaam'],
+        'achternaam' => $this->_sourceData['achternaam'],
+      ];
+      $persoon->preparePersoonData($persoonData);
+      $newPersoon = $persoon->create();
+      $persoon->createHuishoudenRelationship($newPersoon['id'], $huishoudenId);
+      $adres = new CRM_Migratie2018_Address($newPersoon['id'], $this->_logger);
+      $adres->createSharedAddress($newAdresId);
+      if (!empty($this->_sourceData['email'])) {
+        $email = new CRM_Migratie2018_Email($newPersoon['id'], $this->_logger);
+        $email->createIfNotExists($this->_sourceData['email']);
+      }
+      if (!empty($this->_sourceData['telefoon'])) {
+        $phone = new CRM_Migratie2018_Phone($newPersoon['id'], 'phone', $this->_logger);
+        $phone->createIfNotExists($this->_sourceData['telefoon']);
+      }
+      // voeg lidmaatschap voor het leven toe aan huishouden
+      $membership = new CRM_Migratie2018_Membership($huishoudenId, $this->_logger);
+      $membership->createLidLeven($this->_sourceData);
     }
-    // voeg lidmaatschap voor het leven toe aan huishouden
-    $membership = new CRM_Migratie2018_Membership($huishoudenId, $this->_logger);
-    $membership->createLidLeven($this->_sourceData);
   }
 
+  /**
+   * Method om gratis en ruil lid te migreren naar of bestaand of nieuw huishouden
+   *
+   * @return bool
+   */
+  public function processGratisLid() {
+    // maak eventueel huishouden/persoon of organisatie aan
+    $lidContactId = $this->createGratisContact($this->_sourceData);
+    if ($lidContactId) {
+      // voeg gratis en ruil lidmaatschap toe
+      $membership = new CRM_Migratie2018_Membership($lidContactId, $this->_logger);
+      $membership->createGratisLid($this->_sourceData);
+    }
+    else {
+      $this->_logger->logMessage('Fout', E::ts('Kon geen contact en gratis en ruil lidmaatschap toevoegen voor brondata ' . serialize($this->_sourceData)));
+    }
+  }
+
+  /**
+   * Method om gratis en ruil lidmaatschap toe te voegen
+   *
+   * @param $sourceData
+   * @return bool|int
+   */
+  private function createGratisContact($sourceData) {
+    // als persoon x dan huishouden en persoon anders organisatie
+    if ($sourceData['persoon'] == "x") {
+      $huishoudenId = $this->createGratisHousehold($sourceData);
+      if ($huishoudenId) {
+      return $huishoudenId;
+      }
+    }
+    else {
+      $organisatieId = $this->createGratisOrganisatie($sourceData);
+      if ($organisatieId) {
+      return $organisatieId;
+      }
+    }
+    return FALSE;
+  }
+
+  /**
+   * Method om huishouden en persoon aan te maken voor gratis lid
+   *
+   * @param $sourceData
+   * @return bool|int
+   */
+  private function createGratisHousehold($sourceData) {
+    $huishoudenId = $this->getContactIdMetLidId($sourceData['lidnummer']);
+    if (!$huishoudenId) {
+      $huishouden = new CRM_Migratie2018_Contact('Household', $this->_logger);
+      $huishoudenData = [
+        'afdeling_id' => $sourceData['afdeling'],
+        'household_name' => $sourceData['voornaam'] . " " . $sourceData['achternaam'],
+      ];
+      $huishouden->prepareHuishoudenData($huishoudenData);
+      $created = $huishouden->create();
+      if (isset($created['id'])) {
+        $huishoudenId = $created['id'];
+      }
+    }
+    if ($huishoudenId) {
+      $adres = new CRM_Migratie2018_Address($huishoudenId, $this->_logger);
+      $adres->prepareFileMakerAdresData($sourceData);
+      $newAdresId = $adres->create();
+      $persoon = new CRM_Migratie2018_Contact('Individual', $this->_logger);
+      $persoonData = [
+        'first_name' => $this->_sourceData['voornaam'],
+        'achternaam' => $this->_sourceData['achternaam'],
+      ];
+      $persoon->preparePersoonData($persoonData);
+      $newPersoon = $persoon->create();
+      $persoon->createHuishoudenRelationship($newPersoon['id'], $huishoudenId);
+      $adres = new CRM_Migratie2018_Address($newPersoon['id'], $this->_logger);
+      $adres->createSharedAddress($newAdresId);
+      if (!empty($sourceData['email'])) {
+        $email = new CRM_Migratie2018_Email($newPersoon['id'], $this->_logger);
+        $email->createIfNotExists($sourceData['email']);
+      }
+      if (!empty($sourceData['telefoon'])) {
+        $phone = new CRM_Migratie2018_Phone($newPersoon['id'], 'phone', $this->_logger);
+        $phone->createIfNotExists($sourceData['telefoon']);
+      }
+      return $huishoudenId;
+    }
+    return FALSE;
+  }
+  /**
+   * Method om organisatie aan te maken voor gratis lid
+   *
+   * @param $sourceData
+   * @return bool|int
+   */
+  private function createGratisOrganisatie($sourceData) {
+    $organisatieId = $this->getContactIdMetLidId($sourceData['lidnummer']);
+    if (!$organisatieId) {
+      $organisatie = new CRM_Migratie2018_Contact('Organization', $this->_logger);
+      $organisatie->prepareOrganisatieData($sourceData);
+      $created = $organisatie->create();
+      if (isset($created['id'])) {
+        $organisatieId = $created['id'];
+      }
+    }
+    if ($organisatieId) {
+      $adres = new CRM_Migratie2018_Address($organisatieId, $this->_logger);
+      $adres->prepareFileMakerAdresData($sourceData);
+      $adres->create();
+      if (!empty($sourceData['email'])) {
+        $email = new CRM_Migratie2018_Email($organisatieId, $this->_logger);
+        $email->createIfNotExists($sourceData['email']);
+      }
+      if (!empty($sourceData['telefoon'])) {
+        $phone = new CRM_Migratie2018_Phone($organisatieId, 'phone', $this->_logger);
+        $phone->createIfNotExists($sourceData['telefoon']);
+      }
+      return $organisatieId;
+    }
+    return FALSE;
+  }
 }
