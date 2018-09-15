@@ -292,16 +292,18 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
       ];
       $persoon->preparePersoonData($persoonData);
       $newPersoon = $persoon->create();
-      $persoon->createHuishoudenRelationship($newPersoon['id'], $huishoudenId);
-      $adres = new CRM_Migratie2018_Address($newPersoon['id'], $this->_logger);
-      $adres->createSharedAddress($newAdresId);
-      if (!empty($this->_sourceData['email'])) {
-        $email = new CRM_Migratie2018_Email($newPersoon['id'], $this->_logger);
-        $email->createIfNotExists($this->_sourceData['email']);
-      }
-      if (!empty($this->_sourceData['telefoon'])) {
-        $phone = new CRM_Migratie2018_Phone($newPersoon['id'], 'phone', $this->_logger);
-        $phone->createIfNotExists($this->_sourceData['telefoon']);
+      if (isset($newPersoon['id']) && !empty($newPersoon['id'])) {
+        $persoon->createHuishoudenRelationship($newPersoon['id'], $huishoudenId);
+        $adres = new CRM_Migratie2018_Address($newPersoon['id'], $this->_logger);
+        $adres->createSharedAddress($newAdresId);
+        if (!empty($this->_sourceData['email'])) {
+          $email = new CRM_Migratie2018_Email($newPersoon['id'], $this->_logger);
+          $email->createIfNotExists($this->_sourceData['email']);
+        }
+        if (!empty($this->_sourceData['telefoon'])) {
+          $phone = new CRM_Migratie2018_Phone($newPersoon['id'], 'phone', $this->_logger);
+          $phone->createIfNotExists($this->_sourceData['telefoon']);
+        }
       }
       // voeg lidmaatschap voor het leven toe aan huishouden
       $membership = new CRM_Migratie2018_Membership($huishoudenId, $this->_logger);
