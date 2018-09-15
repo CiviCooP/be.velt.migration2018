@@ -132,11 +132,116 @@ class CRM_Migratie2018_Address {
    */
   private function translateFileMakerCountry($fileMakerLand) {
     switch ($fileMakerLand) {
-      case 0:
-        return 'BE';
+      case 1:
+        return 'NL';
+        break;
+      case 2:
+        return 'FR';
+        break;
+      case 3:
+        return 'DE';
+        break;
+      case 4:
+        return 'GB';
+        break;
+      case 5:
+        return 'ES';
+        break;
+      case 6:
+        return 'CH';
+        break;
+      case 7:
+        return 'BI';
+        break;
+        case 8:
+        return 'PT';
+        break;
+      case 9:
+        return 'CA';
+        break;
+      case 10:
+        return 'BF';
+        break;
+      case 11:
+        return 'IT';
+        break;
+      case 12:
+        return 'ZA';
+        break;
+      case 13:
+        return 'IE';
+        break;
+      case 14:
+        return 'LU';
+        break;
+      case 15:
+        return 'DK';
+        break;
+      case 16:
+        return 'GR';
+        break;
+      case 17:
+        return 'SE';
+        break;
+      case 18:
+        return 'US';
+        break;
+      case 19:
+        return 'NO';
+        break;
+      case 20:
+        return 'CR';
+        break;
+      case 21:
+        return 'PH';
+        break;
+      case 22:
+        return 'JO';
+        break;
+      case 23:
+        return 'TR';
+        break;
+      case 24:
+        return 'SK';
+        break;
+      case 25:
+        return 'IS';
+        break;
+      case 26:
+        return 'IL';
+        break;
+      case 27:
+        return 'BR';
+        break;
+      case 28:
+        return 'HU';
+        break;
+      case 29:
+        return 'LT';
+        break;
+      case 30:
+        return 'AU';
+        break;
+      case 31:
+        return 'SL';
+        break;
+      case 32:
+        return 'NZ';
+        break;
+      case 33:
+        return 'FI';
+        break;
+      case 34:
+        return 'AT';
+        break;
+      case 35:
+        return 'SG';
+        break;
+      case 36:
+        return 'IE';
         break;
       default:
-        return 'NL';
+        return 'BE';
         break;
     }
   }
