@@ -396,14 +396,14 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
    * @return bool|int
    */
   private function getGiftPersoon($sourceData) {
+    $persoonCustomGroup = CRM_Veltbasis_Config::singleton()->getPersoonDataCustomGroup();
+    foreach ($persoonCustomGroup['custom_fields'] as $customField) {
+      if ($customField['name'] == 'vpd_rrn_bsn') {
+        $rijksRegColumn = $customField['column_name'];
+      }
+    }
     // eerst kijken of ik iemand kan vinden met rijksregisternummer
     if (isset($sourceData['rijksregisternummer']) && !empty($sourceData['rijksregisternummer'])) {
-      $persoonCustomGroup = CRM_Veltbasis_Config::singleton()->getPersoonDataCustomGroup();
-      foreach ($persoonCustomGroup as $customField) {
-        if ($customField['name'] == 'vpd_rrn_bsn') {
-          $rijksRegColumn = $customField['column_name'];
-        }
-      }
       $query = 'SELECT entity_id FROM ' . $persoonCustomGroup['table_name'] . ' WHERE ' . $rijksRegColumn . ' = %1';
       $contactId = CRM_Core_DAO::singleValueQuery($query, [1 => [$sourceData['rijksregisternummer'], 'String']]);
       if ($contactId) {
@@ -412,7 +412,7 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
     }
     // als dat niet lukt, zoeken op lidnummer en 1e persoon huishouden selecteren + in nakijkgroep
     if (isset($sourceData['lidnummer']) && !empty($sourceData['lidnummer'])) {
-      $huishoudenId = $this>$this->getContactIdMetLidId($sourceData['lidnummer']);
+      $huishoudenId = $this->getContactIdMetLidId($sourceData['lidnummer']);
       if ($huishoudenId) {
         $query = "SELECT contact_id_a FROM civicrm_relationship WHERE relationship_type_id = %1 
           AND contact_id_b = %2 ORDER BY contact_id_a LIMIT 1";
@@ -421,11 +421,46 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
           2 => [$huishoudenId, 'Integer'],
         ]);
         if ($contactId) {
+          // eventueel bijwerken rijksregisternummer
+          if (isset($sourceData['rijksregisternummer']) && !empty($sourceData['rijksregisternummer'])) {
+            $this->updateRijksRegisterNummer($contactId, $sourceData['rijksregisternummer']);
+          }
           return (int) $contactId;
         }
       }
     }
     return FALSE;
+  }
+
+  /**
+   * Method om rijksregisternummer bij te werken of toe te voegen
+   *
+   * @param $contactId
+   * @param $rijksRegisterNummer
+   */
+  private function updateRijksRegisterNummer($contactId, $rijksRegisterNummer) {
+    $persoonCustomGroup = CRM_Veltbasis_Config::singleton()->getPersoonDataCustomGroup();
+    foreach ($persoonCustomGroup['custom_fields'] as $customField) {
+      if ($customField['name'] == 'vpd_rrn_bsn') {
+        $rijksRegColumn = $customField['column_name'];
+      }
+    }
+    $query = "SELECT COUNT(*) FROM " . $persoonCustomGroup['table_name'] . " WHERE entity_id = %1";
+    $count = CRM_Core_DAO::singleValueQuery($query, [1 => [$contactId, 'Integer']]);
+    if ($count == 0) {
+      $insert = "INSERT INTO " . $persoonCustomGroup['table_name'] . " (entity_id, " . $rijksRegColumn . ") VALUES (%1, %2)";
+      CRM_Core_DAO::executeQuery($insert, [
+        1 => [$contactId, 'Integer'],
+        2 => [$rijksRegisterNummer, 'String'],
+      ]);
+    }
+    else {
+      $update = "UPDATE " . $persoonCustomGroup['table_name'] . " SET " . $rijksRegColumn . " = %1 WHERE entity_id = %2";
+      CRM_Core_DAO::executeQuery($update, [
+        1 => [$rijksRegisterNummer, 'String'],
+        2 => [$contactId, 'Integer'],
+      ]);
+    }
   }
 
   /**
@@ -435,12 +470,21 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
    * @return int|bool
    */
   private function createGiftPersoon($sourceData) {
+    $persoonCustomGroup = CRM_Veltbasis_Config::singleton()->getPersoonDataCustomGroup();
+    foreach ($persoonCustomGroup['custom_fields'] as $customField) {
+      if ($customField['name'] == 'vpd_rrn_bsn') {
+        $rijksRegField = 'custom_' . $customField['id'];
+      }
+    }
     $contactData = ['contact_type' => 'Individual'];
     if (!empty($sourceData['voornaam'])) {
       $contactData['first_name'] = trim($sourceData['voornaam']);
     }
     if (!empty($sourceData['achternaam'])) {
       $contactData['last_name'] = trim($sourceData['achternaam']);
+    }
+    if (!empty($sourceData['rijksregisternummer'])) {
+      $contactData[$rijksRegField] = $sourceData['rijksregisternummer'];
     }
     try {
       $created = civicrm_api3('Contact', 'create', $contactData);
@@ -464,7 +508,7 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
   private function addGift($contactId, $sourceData) {
     $bijdrageData = [
       'contact_id' => $contactId,
-      'financial_type_id' => 'Gift',
+      'financial_type_id' => 'Donatie',
       ];
     if (isset($sourceData['afkomstig']) && !empty($sourceData['afkomstig'])) {
       $bijdrageData['source'] = $sourceData['afkomstig'];
