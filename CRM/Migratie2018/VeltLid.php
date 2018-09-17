@@ -330,6 +330,161 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
   }
 
   /**
+   * Method om einddatum voor actief lid te zetten
+   *
+   * @return bool
+   */
+  public function processActiefLid() {
+    // kijk of lidnummer voorkomt en zo ja, zet einddatum naar vervaldatum uit brondata
+    $lidCustomGroup = CRM_Veltbasis_Config::singleton()->getHistLidCustomGroup();
+    foreach ($lidCustomGroup['custom_fields'] as $customField) {
+      if ($customField['name'] == 'velt_oud_lid_id') {
+        $oudLidColumn = $customField['column_name'];
+      }
+    }
+    $query = "SELECT entity_id FROM " . $lidCustomGroup['table_name'] . " WHERE " . $oudLidColumn . " = %1";
+    $membershipId = CRM_Core_DAO::singleValueQuery($query, [1 => [$this->_sourceData['lidnummer'], 'String']]);
+    if ($membershipId) {
+      if (isset($this->_sourceData['vervaldatum']) && !empty ($this->_sourceData['vervaldatum'])) {
+        $vervalDatum = new DateTime($this->_sourceData['vervaldatum']);
+        try {
+          civicrm_api3('Membership', 'create', [
+            'id' => $membershipId,
+            'end_date' => $vervalDatum->format('d-m-Y'),
+          ]);
+          return TRUE;
+        }
+        catch (CiviCRM_API3_Exception $ex) {
+          $this->_logger->logMessage('Fout', E::ts('Fout bij het bijwerken van vervaldatum op basis van actief voor lidnummer ')
+            . $this->_sourceData['lidnummer'] . E::ts(', foutmelding van API Membership create: ') . $ex->getMessage());
+        }
+      }
+      else {
+        $this->_logger->logMessage('Fout', E::ts('Geen of lege vervaldatum voor actief lid met lidnummer ') . $this->_sourceData['lidnummer']);
+      }
+    }
+    else {
+      $this->_logger->logMessage('Fout', E::ts('Kon geen lidmaatschap vinden voor actief lid met lidnummer ') . $this->_sourceData['lidnummer']);
+    }
+    return FALSE;
+  }
+
+  /**
+   * Method om giften uit filemaker over te zetten
+   *
+   * @return bool
+   */
+  public function processGift() {
+    // kijk of persoon voorkomt en zo ja, bijdrage toevoegen bij deze persoon
+    $contactId = $this->getGiftPersoon($this->_sourceData);
+    if (!$contactId) {
+      // als niet gevonden, persoon aanmaken
+      $contactId = $this->createGiftPersoon($this->_sourceData);
+    }
+    if ($contactId) {
+      // voeg bijdrage (Gift) toe aan gevonden of aangemaakt contact
+      $this->addGift($contactId, $this->_sourceData);
+      return TRUE;
+    }
+    return FALSE;
+  }
+
+  /**
+   * Method om persoon te vinden voor gift
+   *
+   * @param $sourceData
+   * @return bool|int
+   */
+  private function getGiftPersoon($sourceData) {
+    // eerst kijken of ik iemand kan vinden met rijksregisternummer
+    if (isset($sourceData['rijksregisternummer']) && !empty($sourceData['rijksregisternummer'])) {
+      $persoonCustomGroup = CRM_Veltbasis_Config::singleton()->getPersoonDataCustomGroup();
+      foreach ($persoonCustomGroup as $customField) {
+        if ($customField['name'] == 'vpd_rrn_bsn') {
+          $rijksRegColumn = $customField['column_name'];
+        }
+      }
+      $query = 'SELECT entity_id FROM ' . $persoonCustomGroup['table_name'] . ' WHERE ' . $rijksRegColumn . ' = %1';
+      $contactId = CRM_Core_DAO::singleValueQuery($query, [1 => [$sourceData['rijksregisternummer'], 'String']]);
+      if ($contactId) {
+        return (int) $contactId;
+      }
+    }
+    // als dat niet lukt, zoeken op lidnummer en 1e persoon huishouden selecteren + in nakijkgroep
+    if (isset($sourceData['lidnummer']) && !empty($sourceData['lidnummer'])) {
+      $huishoudenId = $this>$this->getContactIdMetLidId($sourceData['lidnummer']);
+      if ($huishoudenId) {
+        $query = "SELECT contact_id_a FROM civicrm_relationship WHERE relationship_type_id = %1 
+          AND contact_id_b = %2 ORDER BY contact_id_a LIMIT 1";
+        $contactId = CRM_Core_DAO::singleValueQuery($query, [
+          1 => [CRM_Veltbasis_Config::singleton()->getLidHuishoudenRelationshipType('id'), 'Integer'],
+          2 => [$huishoudenId, 'Integer'],
+        ]);
+        if ($contactId) {
+          return (int) $contactId;
+        }
+      }
+    }
+    return FALSE;
+  }
+
+  /**
+   * Method om persoon aan te maken voor gift
+   *
+   * @param $sourceData
+   * @return int|bool
+   */
+  private function createGiftPersoon($sourceData) {
+    $contactData = ['contact_type' => 'Individual'];
+    if (!empty($sourceData['voornaam'])) {
+      $contactData['first_name'] = trim($sourceData['voornaam']);
+    }
+    if (!empty($sourceData['achternaam'])) {
+      $contactData['last_name'] = trim($sourceData['achternaam']);
+    }
+    try {
+      $created = civicrm_api3('Contact', 'create', $contactData);
+      $contactId = $created['id'];
+      // eventueel adres toevoegen
+      return $contactId;
+    }
+    catch (CiviCRM_API3_Exception $ex) {
+      $this->_logger->logMessage('Fout', E::ts('Kon geen persoon voor gift toevoegen, foutmelding van Contact create API: '
+        . $ex->getMessage() . ', gift niet gemigreerd. Brondata: ' . serialize($sourceData)));
+      return FALSE;
+    }
+  }
+
+  /**
+   * Method om bijdrage voor gift toe te voegen
+   *
+   * @param $contactId
+   * @param $sourceData
+   */
+  private function addGift($contactId, $sourceData) {
+    $bijdrageData = [
+      'contact_id' => $contactId,
+      'financial_type_id' => 'Gift',
+      ];
+    if (isset($sourceData['afkomstig']) && !empty($sourceData['afkomstig'])) {
+      $bijdrageData['source'] = $sourceData['afkomstig'];
+    }
+    if (isset($sourceData['bedrag']) && !empty($sourceData['bedrag'])) {
+      $bijdrageData['total_amount'] = (float) $sourceData['bedrag'];
+      try {
+        civicrm_api3('Contribution', 'create', $bijdrageData);
+      }
+      catch (CiviCRM_API3_Exception $ex) {
+        $this->_logger->logMessage('Fout', E::ts('Fout bij toevoegen gift, foutmelding van API Contribution create : '
+          . $ex->getMessage() . ' met data : ' . serialize($sourceData)));
+      }
+    }
+    else {
+      $this->_logger->logMessage('Fout', E::ts('Geen bedrag gevonden bij gift met gegevens ' . serialize($sourceData) . ', gift niet gemigreerd!'));
+    }
+  }
+
+  /**
    * Method om gratis en ruil lidmaatschap toe te voegen
    *
    * @param $sourceData
