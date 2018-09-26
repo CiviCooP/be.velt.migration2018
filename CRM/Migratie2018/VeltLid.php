@@ -88,29 +88,38 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
       }
     }
     if (!empty($this->_sourceData['iban'])) {
-      $this->processBankAccount();
+      if (isset($this->_sourceData['bic'])) {
+        $this->processBankAccount($this->_huishoudenId, $this->_sourceData['iban'], $this->_sourceData['bic']);
+      }
+      else {
+        $this->processBankAccount($this->_huishoudenId, $this->_sourceData['iban']);
+      }
     }
   }
   /**
    * Method om bankrekening aan te maken
+   *
+   * @param $contactId
+   * @param $iban
+   * @param $bic
    */
-  private function processBankAccount() {
+  private function processBankAccount($contactId, $iban, $bic = "") {
     // eerst leeg bank account aanmaken voor contact
     try {
       $createdBankAccount = civicrm_api3('BankingAccount', 'create', [
-        'contact_id' => $this->_huishoudenId,
+        'contact_id' => $contactId,
         'data_parsed' => '{}',
       ]);
       $bankAccountId = $createdBankAccount['id'];
       $bankData = [];
       // indien mogelijk land bijwerken
-      $country = substr(trim($this->_sourceData['iban']), 0, 2);
+      $country = substr(trim($iban), 0, 2);
       if ($country == 'BE' || $country = 'NL') {
         $bankData['country'] = $country;
       }
       // indien nodig BIC bijwerken
-      if (!empty($this->_sourceData['bic'])) {
-        $bankData['BIC'] = trim($this->_sourceData['bic']);
+      if (!empty($bic)) {
+        $bankData['BIC'] = trim($bic);
       }
       if (!empty($bankData)) {
         $bankBao = new CRM_Banking_BAO_BankAccount();
@@ -120,14 +129,14 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
       }
       // update/create bank reference
       $referenceParams = [
-        'reference' => trim($this->_sourceData['iban']),
+        'reference' => trim($iban),
         'reference_type_id' => $this->getBankAccountReferenceType(),
         'ba_id' => $bankAccountId,
       ];
       civicrm_api3('BankingAccountReference', 'create', $referenceParams);
     }
     catch (CiviCRM_API3_Exception $ex) {
-      $this->_logger->logMessage('Warning', 'Kon geen bankrekeningnummer ' .$this->_sourceData['iban'] . ' toevoegen bij huishouden ' . $this->_huishoudenId);
+      $this->_logger->logMessage('Warning', 'Kon geen bankrekeningnummer ' .$iban . ' toevoegen bij huishouden ' . $this->_huishoudenId);
     }
   }
 
@@ -387,6 +396,198 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
       return TRUE;
     }
     return FALSE;
+  }
+
+  /**
+   * Method om mamndaten uit filemaker over te zetten
+   *
+   * @return bool
+   */
+  public function processMandaat() {
+    // kijk of persoon voorkomt en indien niet, log fout en negeer
+    $contactId = $this->getContactIdMetLidId($this->_sourceData['lidnummer']);
+    if ($contactId) {
+      // mandaat data voorbereiden
+      $mandaatData = $this->prepareMandaatData($contactId);
+      if (!empty($mandaatData)) {
+        try {
+          $nieuwMandaat = civicrm_api3('SepaMandate', 'createfull', $mandaatData);
+          // daarna mandaat verbinden met lidmaatschap
+          $this->connectMandaat($nieuwMandaat['id'], $contactId);
+          // dan bijdrage voor lidmaatschap toevoegen en bijdrage opnemen in mandaat
+          $this->createMandaatPayment($nieuwMandaat['values'][$nieuwMandaat['id']], $contactId);
+          return TRUE;
+        }
+        catch (CiviCRM_API3_Exception $ex) {
+          $this->_logger->logMessage(E::ts('Fout'), E::ts('Fout bij het aanmaken van een mandaat voor lid ')
+            . $this->_sourceData['lidnummer'] . E::ts(', mandaat niet aangemaakt'));
+          return FALSE;
+        }
+      }
+    }
+    else {
+      $this->_logger->logMessage(E::ts('Fout'), E::ts('Kon geen huishouden vinden met lidnummer ')
+        . $this->_sourceData['lidnummer'] . E::ts(', geen mandaat aangemaakt voor domiciliëring'));
+      return FALSE;
+    }
+  }
+
+  /**
+   * Method om mandaat te verbinden met lidmaatschap
+   *
+   * @param $mandaatId
+   * @param $contactId
+   */
+  private function connectMandaat($mandaatId, $contactId) {
+    $query = "UPDATE civicrm_value_velt_lid_data SET velt_mandaat_id = %1 WHERE velt_oud_lid_id = %2";
+    CRM_Core_DAO::executeQuery($query, [
+      1 => [$mandaatId, 'Integer'],
+      2 => [$this->_sourceData['lidnummer'], 'String'],
+    ]);
+  }
+
+  /**
+   * Method om bijdrage aan te maken voor mandaat
+   *
+   * @param $mandaat
+   * @param $contactId
+   */
+  private function createMandaatPayment($mandaat, $contactId) {
+    // eerst bestaande membership betalingen verwijderen
+    $query = "SELECT entity_id FROM civicrm_value_velt_lid_data WHERE velt_oud_lid_id = %1 LIMIT 1";
+    $membershipId = CRM_Core_DAO::singleValueQuery($query, [1 => [$this->_sourceData['lidnummer'], 'String']]);
+    if ($membershipId) {
+      $payQuery = "SELECT contribution_id FROM civicrm_membership_payment WHERE membership_id = %1";
+      $dao = CRM_Core_DAO::executeQuery($payQuery, [1 => [$membershipId, 'Integer']]);
+      while ($dao->fetch()) {
+        try {
+          civicrm_api3('Contribution', 'delete', ['id' => $dao->contribution_id]);
+        }
+        catch (CiviCRM_API3_Exception $ex) {
+        }
+      }
+      try {
+        $contributionData = [
+          'contact_id' => $contactId,
+          'contribution_recur_id' => $mandaat['entity_id'],
+          'financial_type_id' => CRM_Migratie2018_Config::singleton()->getMembershipFinancialTypeId(),
+          'total_amount' => CRM_Migratie2018_Config::singleton()->getAdresMembershipFee(),
+          'receive_date' => $mandaat['date'],
+          'source' => 'Filemaker Domiciliëring Migratie',
+          'contribution_status_id' => CRM_Migratie2018_Config::singleton()->getCompletedContributionStatusId(),
+        ];
+        $created = civicrm_api3('Contribution', 'create', $contributionData);
+        // membership payment aanmaken
+        try {
+          civicrm_api3('MembershipPayment', 'create', [
+            'membership_id' => $membershipId,
+            'contribution_id' => $created['id'],
+          ]);
+        }
+        catch (CiviCRM_API3_Exception $ex) {
+        }
+        // nu first_contribution_id in mandaat bijwerken
+        $query = "UPDATE civicrm_sdd_mandate SET first_contribution_id = %1 WHERE id = %2";
+        CRM_Core_DAO::executeQuery($query, [
+          1 => [$created['id'], 'Integer'],
+          2 => [$mandaat['id'], 'Integer'],
+        ]);
+      }
+      catch (CiviCRM_API3_Exception $ex) {
+        $this->_logger->logMessage(E::ts('Kon geen bijdrage aanmaken voor mandaat ID ') . $mandaat['id']
+          . E::ts(' voor lidnummer ') . $this->_sourceData['lidnummer'] . E::ts(', corrigeer eventueel handmatig'));
+      }
+    }
+  }
+
+  /**
+   * Method om data voor mandaat klaar te zetten
+   *
+   * @param $contactId
+   * @return array
+   */
+  private function prepareMandaatData($contactId) {
+    $mandaatData = [];
+    if (!empty($contactId)) {
+      $mandaatData['contact_id'] = $contactId;
+      $mandaatData['source'] = 'Migratie domiciliëringen uit FileMaker';
+      if (!empty($this->_sourceData['iban'])) {
+        $mandaatData['iban'] = str_replace(' ', '', $this->_sourceData['iban']);
+      }
+      else {
+        $this->_logger->logMessage(E::ts('Fout'), E::ts('Geen iban gevonden bij domiciliëring voor lid ')
+          . $this->_sourceData['lidnummer'] . E::ts(', mandaat niet aangemaakt'));
+        return [];
+      }
+      if (!empty($this->_sourceData['bic'])) {
+        $mandaatData['bic'] = str_replace(' ', '', $this->_sourceData['bic']);
+      }
+      $vervalDatum = $this->berekenMandaatStartDatum($this->_sourceData['vervaldatum']);
+      if ($vervalDatum) {
+        $mandaatData['date'] = $vervalDatum;
+      }
+      else {
+        $this->_logger->logMessage(E::ts('Waarschuwing'), E::ts('Geen vervaldatum gevonden bij domiciliëring voor lid ')
+          . $this->_sourceData['lidnummer'] . E::ts(', mandaat start datum op 1 jan 2018 gezet'));
+        $mandaatData['date'] = '20180101';
+      }
+      $mandaatData['frequency_unit'] = CRM_Migratie2018_Config::singleton()->getYearlyFreqeuncyUnit();
+      $mandaatData['frequency_interval'] = 1;
+      if (!empty($this->_sourceData['tekendatum'])) {
+        $tekenDatum = new DateTime($this->_sourceData['tekendatum']);
+        $mandaatData['validation_date'] = $tekenDatum->format('Ymd');
+      }
+      $mandaatData['type'] = CRM_Migratie2018_Config::singleton()->getRecurType();
+      $mandaatData['status'] = CRM_Migratie2018_Config::singleton()->getRecurStatus();
+      $mandaatData['amount'] = CRM_Migratie2018_Config::singleton()->getAdresMembershipFee();
+      // werk eventueel begindatum lidmaatschap bij met mandaat startdatum
+      $this->bijwerkenLidmaatschapStartDatum($contactId, $mandaatData['date']);
+    }
+    return $mandaatData;
+  }
+
+  /**
+   * Method om de lidmaatschapsdatum bij te werken als de mandaatdatum eerder is
+   *
+   * @param $contactId
+   * @param $mandaatDatum
+   */
+  private function bijwerkenLidmaatschapStartDatum($contactId, $mandaatDatum) {
+    $query = "SELECT start_date, id FROM civicrm_membership WHERE contact_id = %1 AND membership_type_id = %2 AND is_test = %3 
+      AND status_id IN (%4, %5) ORDER BY start_date DESC LIMIT 1";
+    $dao = CRM_Core_DAO::executeQuery($query, [
+      1 => [$contactId, 'Integer'],
+      2 => [CRM_Veltbasis_Config::singleton()->getAdresLidType('id'), 'Integer'],
+      3 => [0, 'Integer'],
+      4 => [CRM_Migratie2018_Config::singleton()->getNewMembershipStatusId(), 'Integer'],
+      5 => [CRM_Migratie2018_Config::singleton()->getCurrentMembershipStatusId(), 'Integer'],
+    ]);
+    if ($dao->fetch()) {
+      $start = new DateTime($dao->start_date);
+      $mandaat = new DateTime($mandaatDatum);
+      if ($start > $mandaat) {
+        $update = "UPDATE civicrm_membership SET start_date = %1 WHERE id = %2";
+        CRM_Core_DAO::executeQuery($update, [
+          1 => [$mandaat->format('Y-m-d'), 'String'],
+          2 => [$dao->id, 'Integer'],
+        ]);
+      }
+    }
+  }
+
+  /**
+   * Method om de startdatum van het mandaat te berekenen
+   *
+   * @param $vervalDatum
+   * @return null|string
+   */
+  private function berekenMandaatStartDatum($vervalDatum) {
+    $startDatum = NULL;
+    if (!empty($vervalDatum)) {
+      $datum = new DateTime($vervalDatum);
+      $startDatum = $datum->modify('-1 year')->format('Ymd');
+    }
+    return $startDatum;
   }
 
   /**

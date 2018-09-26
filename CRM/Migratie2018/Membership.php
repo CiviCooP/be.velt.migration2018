@@ -261,7 +261,7 @@ class CRM_Migratie2018_Membership {
         'financial_type_id' => $this->_adresLidType['financial_type_id'],
         'payment_instrument_id' => $this->_bankTransferTypeId,
         'receive_date' => $paymentDate,
-        'total_amount' => $this->_adresLidType['minimum_fee'],
+        'total_amount' => CRM_Migratie2018_Config::singleton()->getAdresMembershipFee(),
         'contribution_status_id' => $this->_completedContributionStatusId,
         'source' => 'Migratie naar CiviCRM 2018',
       ]);
