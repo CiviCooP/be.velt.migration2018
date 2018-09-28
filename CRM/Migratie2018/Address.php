@@ -312,31 +312,35 @@ class CRM_Migratie2018_Address {
    * @param $addressId
    */
   public function createSharedAddress($addressId) {
-    try {
-      $master = civicrm_api3('Address', 'getsingle', ['id' => $addressId]);
+    if (!empty($addressId) && !empty($this->_contactId)) {
       try {
-        $locationType = new CRM_Migratie2018_LocationType();
-        $adresData = [
-          'contact_id' => $this->_contactId,
-          'master_id' => $addressId,
-          'location_type_id' => $locationType->determineForContact('address', $this->_contactId),
-          'street_address' => $master['street_address'],
-          'city' => $master['city'],
-          'postal_code' => $master['postal_code'],
-          'is_primary' => CRM_Migratie2018_VeltMigratie::setIsPrimary('address', $this->_contactId),
-        ];
-        if (isset($master['country_id'])) {
-          $adresData['country_id'] = $master['country_id'];
+        $master = civicrm_api3('Address', 'getsingle', ['id' => $addressId]);
+        try {
+          $locationType = new CRM_Migratie2018_LocationType();
+          $adresData = [
+            'contact_id' => $this->_contactId,
+            'master_id' => $addressId,
+            'location_type_id' => $locationType->determineForContact('address', $this->_contactId),
+            'street_address' => $master['street_address'],
+            'postal_code' => $master['postal_code'],
+            'is_primary' => CRM_Migratie2018_VeltMigratie::setIsPrimary('address', $this->_contactId),
+          ];
+          if (isset($master['city'])) {
+            $adresData['city'] = $master['city'];
+          }
+          if (isset($master['country_id'])) {
+            $adresData['country_id'] = $master['country_id'];
+          }
+          civicrm_api3('Address', 'Create', $adresData);
         }
-        civicrm_api3('Address', 'Create', $adresData);
+        catch (CiviCRM_API3_Exception $ex) {
+          $this->_logger->logMessage('Waarschuwing', 'Kan geen gedeeld adres toevoegen voor adres ' .$addressId . ' en contact ' .
+            $this->_contactId . ', melding van API Address Create : ' .$ex->getMessage());
+        }
       }
       catch (CiviCRM_API3_Exception $ex) {
-        $this->_logger->logMessage('Waarschuwing', 'Kan geen gedeeld adres toevoegen voor adres ' .$addressId . ' en contact ' .
-          $this->_contactId . ', melding van API Address Create : ' .$ex->getMessage());
+        $this->_logger->logMessage('Waarschuwing', 'Kon geen adres vinden met id ' . $addressId);
       }
-    }
-    catch (CiviCRM_API3_Exception $ex) {
-      $this->_logger->logMessage('Waarschuwing', 'Kon geen adres vinden met id ' . $addressId);
     }
   }
 }

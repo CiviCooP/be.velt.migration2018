@@ -323,4 +323,40 @@ class CRM_Migratie2018_Membership {
     }
   }
 
+  /**
+   * Method om archief lidmaatschap toe te voegen
+   *
+   * @param $sourceData
+   * @return array|bool
+   */
+  public function createArchiefLidmaatschap($sourceData) {
+    // lidnummer en vervaldatum moeten er zijn
+    $mandatories = ['lidnummer', 'vervaldatum'];
+    foreach ($mandatories as $mandatory) {
+      if (!isset($sourceData[$mandatory]) || empty($sourceData[$mandatory])) {
+        $this->_logger->logMessage(E::ts('Geen ' . $mandatory . ' gevonden bij aanmaken lidmaatschap uit filemaker archief, data verder genegeerd . Brondata: ' . serialize($sourceData)));
+        return FALSE;
+      }
+    }
+    $this->_lidData = [
+      'contact_id' => $this->_contactId,
+      'membership_type_id' => $this->_gratisLidType['id'],
+      'is_test' => 0,
+      'is_pay_later' => 0,
+      $this->_historischCustomField => $sourceData['lidnummer'],
+    ];
+    // einddatum wordt vervaldatum, startdatum vervaldatum - 1 jaar
+    $verval = new DateTime($sourceData['vervaldatum']);
+    $this->_lidData['end_date'] = $verval->format('Y-m-d');
+    $end = $verval->sub(new DateInterval("P1Y"));
+    $this->_lidData['start_date'] = $end->format('Y-m-d');
+    // bepaal status
+    if (isset($sourceData['opzegdatum']) && !empty($sourceData['opzegdatum'])) {
+      $this->_lidData['status_id'] = CRM_Migratie2018_Config::singleton()->getCancelledMembershipStatusId();
+    }
+    else {
+      $this->_lidData['status_id'] = CRM_Migratie2018_Config::singleton()->getExpiredMembershipStatusId();
+    }
+  }
+
 }

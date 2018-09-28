@@ -40,7 +40,7 @@ class CRM_Migratie2018_Phone {
    * @return bool
    */
   public function createIfNotExists($phone) {
-    if (!empty($phone)) {
+    if (!empty($phone) && !empty($this->_contactId)) {
       $query = 'SELECT COUNT(*) FROM civicrm_phone WHERE contact_id = %1 AND phone = %2';
       $count = CRM_Core_DAO::singleValueQuery($query, [
         1 => [$this->_contactId, 'Integer'],

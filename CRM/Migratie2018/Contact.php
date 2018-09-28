@@ -1,4 +1,6 @@
 <?php
+use CRM_Migratie2018_ExtensionUtil as E;
+
 /**
  * Class migratie Contact
  *
@@ -71,35 +73,37 @@ class CRM_Migratie2018_Contact {
    */
   public function createHuishoudenRelationship($individualId, $huishoudenId) {
     // check eerst of relatie al bestaat (via sql ivm performance)
-    $query = "SELECT COUNT(*) FROM civicrm_relationship WHERE relationship_type_id = %1 AND contact_id_a = %2 AND contact_id_b = %3";
-    $count = CRM_Core_DAO::singleValueQuery($query, [
-      1 => [CRM_Veltbasis_Config::singleton()->getLidHuishoudenRelationshipType('id'), 'Integer'],
-      2 => [$individualId, 'Integer'],
-      3 => [$huishoudenId, 'Integer'],
-    ]);
-    switch ($count) {
-      case 0:
-        try {
-          civicrm_api3('Relationship', 'create', [
-            'relationship_type_id' => CRM_Veltbasis_Config::singleton()->getLidHuishoudenRelationshipType('id'),
-            'is_active' => 1,
-            'contact_id_a'=> $individualId,
-            'contact_id_b' => $huishoudenId,
-          ]);
-        }
-        catch (CiviCRM_API3_Exception $ex) {
-          $this->_logger->logMessage('Waarschuwing', 'Kon geen relatie tussen huishouden ' . $huishoudenId .
-            ' en persoon ' . $individualId .' toevoegen, melding van API Relationship Create : ' . $ex->getMessage());
-        }
-        break;
-      case 1:
-        $this->_logger->logMessage('Waarschuwing', 'Er is al een lid huishouden relatie tussen persoon ' . $individualId .
-          ' en huishouden ' . $huishoudenId . 'geen nieuwe toegevoegd.');
-        break;
-      default:
-        $this->_logger->logMessage('Fout', 'Er zijn al meerdere lid huishouden relaties tussen persoon ' . $individualId .
-          ' en huishouden ' . $huishoudenId . ', zoek dit handmatig uit!');
-        break;
+    if (!empty($individualId) && !empty($huishoudenId)) {
+      $query = "SELECT COUNT(*) FROM civicrm_relationship WHERE relationship_type_id = %1 AND contact_id_a = %2 AND contact_id_b = %3";
+      $count = CRM_Core_DAO::singleValueQuery($query, [
+        1 => [CRM_Veltbasis_Config::singleton()->getLidHuishoudenRelationshipType('id'), 'Integer'],
+        2 => [$individualId, 'Integer'],
+        3 => [$huishoudenId, 'Integer'],
+      ]);
+      switch ($count) {
+        case 0:
+          try {
+            civicrm_api3('Relationship', 'create', [
+              'relationship_type_id' => CRM_Veltbasis_Config::singleton()->getLidHuishoudenRelationshipType('id'),
+              'is_active' => 1,
+              'contact_id_a'=> $individualId,
+              'contact_id_b' => $huishoudenId,
+            ]);
+          }
+          catch (CiviCRM_API3_Exception $ex) {
+            $this->_logger->logMessage('Waarschuwing', 'Kon geen relatie tussen huishouden ' . $huishoudenId .
+              ' en persoon ' . $individualId .' toevoegen, melding van API Relationship Create : ' . $ex->getMessage());
+          }
+          break;
+        case 1:
+          $this->_logger->logMessage('Waarschuwing', 'Er is al een lid huishouden relatie tussen persoon ' . $individualId .
+            ' en huishouden ' . $huishoudenId . 'geen nieuwe toegevoegd.');
+          break;
+        default:
+          $this->_logger->logMessage('Fout', 'Er zijn al meerdere lid huishouden relaties tussen persoon ' . $individualId .
+            ' en huishouden ' . $huishoudenId . ', zoek dit handmatig uit!');
+          break;
+      }
     }
   }
 
@@ -112,10 +116,12 @@ class CRM_Migratie2018_Contact {
   public function preparePersoonData($persoonData) {
     $this->_contactData = [
       'contact_type' => $this->_contactType,
-      'first_name' => $persoonData['first_name'],
     ];
+    if (isset($persoon['first_name'])) {
+      $this->_contactData['first_name'] = $persoonData['first_name'];
+    }
     if (isset($persoon['last_name'])) {
-      $this->_contactData = $persoonData['last_name'];
+      $this->_contactData['last_name'] = $persoonData['last_name'];
     }
     if (isset($persoonData['gender'])) {
       $persoonData['gender'] = strtolower($persoonData['gender']);
@@ -178,18 +184,16 @@ class CRM_Migratie2018_Contact {
     catch (CiviCRM_API3_Exception $ex) {
       switch ($this->_contactType) {
         case 'Household':
-          $this->_logger->logMessage('Fout', 'Kan geen huishouden toevoegen met naam ' .
-            $this->_contactData['household_name'] . ', api fout ' . $ex->getMessage());
+          $this->_logger->logMessage(E::ts('Fout'), E::ts('Kan geen huishouden toevoegen met data ' .
+            serialize($this->_contactData)) . E::ts(', api fout ') . $ex->getMessage());
           break;
         case 'Individual':
-          $this->_logger->logMessage('Fout', 'Kan geen persoon toevoegen met naam ' .
-            $this->_contactData['first_name'] . ' ' . $this->_contactData['last_name'] . ', api fout ' .
-            $ex->getMessage());
+          $this->_logger->logMessage(E::ts('Fout'), E::ts('Kan geen persoon toevoegen met data ' .
+            serialize($this->_contactData)) . E::ts(', api fout ') . $ex->getMessage());
           break;
         case 'Organization':
-          $this->_logger->logMessage('Fout', 'Kan geen organisatie toevoegen met naam ' .
-            $this->_contactData['organization_name'] . ', api fout ' .
-            $ex->getMessage());
+          $this->_logger->logMessage(E::ts('Fout'), E::ts('Kan geen organisatie toevoegen met data ' .
+            serialize($this->_contactData)) . E::ts(', api fout ') . $ex->getMessage());
           break;
       }
       return FALSE;

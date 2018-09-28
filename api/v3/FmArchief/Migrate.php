@@ -25,7 +25,7 @@ function civicrm_api3_fm_archief_Migrate($params) {
       2 => [$daoSource->lidnummer, 'String'],
     ]);
     $veltLid = new CRM_Migratie2018_VeltLid($daoSource, $logger);
-    $result = $veltLid->processArchiefLid();
+    $result = $veltLid->processArchief();
     if ($result == FALSE) {
       $logCount++;
     } else {

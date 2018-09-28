@@ -20,6 +20,8 @@ class CRM_Migratie2018_Config {
   private $_recurStatus = NULL;
   private $_newMembershipStatusId = NULL;
   private $_currentMembershipStatusId = NULL;
+  private $_expiredMembershipStatusId = NULL;
+  private $_cancelledMembershipStatusId = NULL;
   private $_membershipFinancialTypeId = NULL;
   private $_adresMembershipFee = NULL;
   private $_completedContributionStatusId = NULL;
@@ -118,6 +120,24 @@ class CRM_Migratie2018_Config {
   }
 
   /**
+   * Getter voor verlopen lidmaatschap status
+   *
+   * @return null
+   */
+  public function getExpiredMembershipStatusId() {
+    return $this->_expiredMembershipStatusId;
+  }
+
+  /**
+   * Getter voor geannuleerd lidmaatschap status
+   *
+   * @return null
+   */
+  public function getCancelledMembershipStatusId() {
+    return $this->_cancelledMembershipStatusId;
+  }
+
+  /**
    * Getter voor jaarlijkse frequentie
    *
    * @return string
@@ -151,9 +171,18 @@ class CRM_Migratie2018_Config {
     $dao = CRM_Core_DAO::executeQuery("SELECT * FROM civicrm_membership_status");
     while ($dao->fetch()) {
       switch ($dao->name) {
+        case 'Cancelled':
+          $this->_cancelledMembershipStatusId = $dao->id;
+          break;
+
         case 'Current':
           $this->_currentMembershipStatusId = $dao->id;
           break;
+
+        case 'Expired':
+          $this->_expiredMembershipStatusId = $dao->id;
+          break;
+
         case 'New':
           $this->_newMembershipStatusId = $dao->id;
           break;

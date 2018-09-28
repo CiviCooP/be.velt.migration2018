@@ -339,6 +339,24 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
   }
 
   /**
+   * Method om archief lid te migreren naar of bestaand of nieuw huishouden
+   *
+   * @return bool
+   */
+  public function processArchief() {
+    // maak eventueel huishouden/persoon of organisatie aan
+    $huishoudenId = $this->createGratisHousehold($this->_sourceData);
+    if ($huishoudenId) {
+      // voeg archief lidmaatschap toe
+      $membership = new CRM_Migratie2018_Membership($huishoudenId, $this->_logger);
+      $membership->createArchiefLidmaatschap($this->_sourceData);
+    }
+    else {
+      $this->_logger->logMessage('Fout', E::ts('Kon geen contact en archief lidmaatschap toevoegen voor brondata ' . serialize($this->_sourceData)));
+    }
+  }
+
+  /**
    * Method om einddatum voor actief lid te zetten
    *
    * @return bool
@@ -753,7 +771,7 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
   }
 
   /**
-   * Method om huishouden en persoon aan te maken voor gratis lid
+   * Method om huishouden en persoon aan te maken voor gratis en archief lid
    *
    * @param $sourceData
    * @return bool|int
@@ -785,7 +803,7 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
       $newPersoon = $persoon->create();
       $persoon->createHuishoudenRelationship($newPersoon['id'], $huishoudenId);
       $adres = new CRM_Migratie2018_Address($newPersoon['id'], $this->_logger);
-      $adres->createSharedAddress($newAdresId);
+      $adres->createSharedAddress($newAdresId['id']);
       if (!empty($sourceData['email'])) {
         $email = new CRM_Migratie2018_Email($newPersoon['id'], $this->_logger);
         $email->createIfNotExists($sourceData['email']);
