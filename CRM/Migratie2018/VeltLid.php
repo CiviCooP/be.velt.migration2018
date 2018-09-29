@@ -797,7 +797,7 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
       $persoon = new CRM_Migratie2018_Contact('Individual', $this->_logger);
       $persoonData = [
         'first_name' => $sourceData['voornaam'],
-        'achternaam' => $sourceData['achternaam'],
+        'last_name' => $sourceData['achternaam'],
       ];
       $persoon->preparePersoonData($persoonData);
       $newPersoon = $persoon->create();
