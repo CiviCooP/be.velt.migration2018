@@ -83,6 +83,8 @@ class CRM_Migratie2018_Address {
    * @return bool
    */
   public function prepareFileMakerAdresData($sourceData) {
+    Civi::log()->debug(ts('Source data is ' . serialize($sourceData)));
+
     if (empty($this->_contactId)) {
       $this->_logger->logMessage('Fout', 'Geen contact id voor adres in ' . __METHOD__);
       return FALSE;
@@ -296,6 +298,7 @@ class CRM_Migratie2018_Address {
    * @return array|bool
    */
   public function create() {
+    Civi::log()->debug(ts('Adres data is ' . serialize($this->_addressData)));
     try {
       $created = civicrm_api3('Address', 'create', $this->_addressData);
       return $created['values'][$created['id']];

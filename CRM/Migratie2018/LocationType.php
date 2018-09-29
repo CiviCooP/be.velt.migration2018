@@ -61,11 +61,13 @@ class CRM_Migratie2018_LocationType {
    * @return bool
    */
   public function determineForContact($entity, $contactId) {
+    Civi::log()->debug(ts('Entity is ' . $entity . ' en contact ' .$contactId));
     $tableName = CRM_Migratie2018_VeltMigratie::setTableForEntity($entity);
     if ($tableName) {
       $query = "SELECT location_type_id FROM " . $tableName . " WHERE contact_id = %1";
       $used = [];
       $dao = CRM_Core_DAO::executeQuery($query, [1 => [$contactId, 'Integer']]);
+      Civi::log()->debug('dao teller ' . $dao->N);
       // return default if none yet
       if ($dao->N == 0) {
         return $this->getDefaultLocationTypeId();
@@ -81,7 +83,7 @@ class CRM_Migratie2018_LocationType {
       }
     }
     else {
-      return FALSE;
+      return $this->getDefaultLocationTypeId();
     }
   }
 
