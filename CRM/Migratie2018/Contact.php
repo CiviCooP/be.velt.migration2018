@@ -117,14 +117,11 @@ class CRM_Migratie2018_Contact {
     $this->_contactData = [
       'contact_type' => $this->_contactType,
     ];
-    if (isset($persoon['first_name'])) {
+    if (isset($persoonData['first_name'])) {
       $this->_contactData['first_name'] = $persoonData['first_name'];
     }
-    if (isset($persoon['last_name'])) {
+    if (isset($persoonData['last_name'])) {
       $this->_contactData['last_name'] = $persoonData['last_name'];
-    }
-    if (isset($persoonData['gender'])) {
-      $persoonData['gender'] = strtolower($persoonData['gender']);
     }
     if (isset($persoonData['gender'])) {
       switch ($persoonData['gender']) {
