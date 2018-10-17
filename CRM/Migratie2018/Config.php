@@ -38,7 +38,7 @@ class CRM_Migratie2018_Config {
     try {
       $this->_sepaDDRecurringInstrumentId = (int) civicrm_api3('OptionValue', 'getvalue', [
         'option_group_id' => 'payment_instrument',
-        'name' => 'SEPA DD Recurring Transaction',
+        'name' => 'RCUR',
         'return' => 'value',
       ]);
     }
