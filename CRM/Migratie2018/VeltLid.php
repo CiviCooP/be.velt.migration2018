@@ -96,6 +96,7 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
       }
     }
   }
+
   /**
    * Method om bankrekening aan te maken
    *
@@ -494,6 +495,11 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
           'source' => 'Filemaker Domiciliëring Migratie',
           'contribution_status_id' => CRM_Migratie2018_Config::singleton()->getCompletedContributionStatusId(),
         ];
+        // payment met sepa recurring als gevonden
+        $paymentInstrumentId = CRM_Migratie2018_Config::singleton()->getSepaDDRecurringInstrumentId();
+        if ($paymentInstrumentId) {
+          $contributionData['payment_instrument_id'] = $paymentInstrumentId;
+        }
         $created = civicrm_api3('Contribution', 'create', $contributionData);
         // membership payment aanmaken
         try {
@@ -553,7 +559,7 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
       $mandaatData['frequency_interval'] = 1;
       if (!empty($this->_sourceData['tekendatum'])) {
         $tekenDatum = new DateTime($this->_sourceData['tekendatum']);
-        $mandaatData['validation_date'] = $tekenDatum->format('Ymd');
+        $mandaatData['signature_date'] = $tekenDatum->format('Ymd');
       }
       $mandaatData['type'] = CRM_Migratie2018_Config::singleton()->getRecurType();
       $mandaatData['status'] = CRM_Migratie2018_Config::singleton()->getRecurStatus();

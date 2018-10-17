@@ -25,6 +25,7 @@ class CRM_Migratie2018_Config {
   private $_membershipFinancialTypeId = NULL;
   private $_adresMembershipFee = NULL;
   private $_completedContributionStatusId = NULL;
+  private $_sepaDDRecurringInstrumentId = NULL;
 
   /**
    * CRM_Migratie2018_Config constructor.
@@ -34,6 +35,16 @@ class CRM_Migratie2018_Config {
   public function __construct() {
     $this->_recurStatus = "RCUR";
     $this->_recurType = "RCUR";
+    try {
+      $this->_sepaDDRecurringInstrumentId = (int) civicrm_api3('OptionValue', 'getvalue', [
+        'option_group_id' => 'payment_instrument',
+        'name' => 'SEPA DD Recurring Transaction',
+        'return' => 'value',
+      ]);
+    }
+    catch (CiviCRM_API3_Exception $ex) {
+      throw new API_Exception(E::ts('Kon geen option value in groep payment_instrument vinden met naam SEPA DD Recurring Transaction in ') . __METHOD__);
+    }
     try {
       $this->_completedContributionStatusId = (string) civicrm_api3('OptionValue', 'getvalue', [
         'option_group_id' => 'contribution_status',
@@ -54,14 +65,13 @@ class CRM_Migratie2018_Config {
     catch (CiviCRM_API3_Exception $ex) {
       throw new API_Exception(E::ts('Kon geen option value in groep recur_frequency_units vinden met name year in ') . __METHOD__);
     }
-    try {
-      $this->_membershipFinancialTypeId = (string) civicrm_api3('FinancialType', 'getvalue', [
-        'name' => 'Contributie',
-        'return' => 'id',
-      ]);
+    $query = "SELECT id FROM civicrm_financial_type WHERE name = %1";
+    $contributieType = CRM_Core_DAO::singleValueQuery($query, [1 => ['Contributie', 'String']]);
+    if ($contributieType) {
+      $this->_membershipFinancialTypeId = (int) $contributieType;
     }
-    catch (CiviCRM_API3_Exception $ex) {
-      throw new API_Exception(E::ts('Kon geen financial type vinden met name Contributie in ') . __METHOD__);
+    else {
+      throw new API_Exception(E::ts('Kon geen financieel type Contributie vinden in ') . __METHOD__);
     }
     $query = "SELECT minimum_fee FROM civicrm_membership_type WHERE name = %1 LIMIT 1";
     $fee = CRM_Core_DAO::singleValueQuery($query, [1 => ['Adreslid', 'String']]);
@@ -73,6 +83,15 @@ class CRM_Migratie2018_Config {
     }
     $this->setMembershipStatus();
 
+  }
+
+  /**
+   * Getter voor sepa DD recurring payment instrument
+   *
+   * @return null|int
+   */
+  public function getSepaDDRecurringInstrumentId() {
+    return $this->_sepaDDRecurringInstrumentId;
   }
 
   /**
