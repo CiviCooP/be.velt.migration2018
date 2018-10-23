@@ -294,7 +294,7 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
     if ($huishoudenId) {
       $adres = new CRM_Migratie2018_Address($huishoudenId, $this->_logger);
       $adres->prepareFileMakerAdresData($this->_sourceData);
-      $newAdresId = $adres->create();
+      $newAdres = $adres->create();
       $persoon = new CRM_Migratie2018_Contact('Individual', $this->_logger);
       $persoonData = [
         'first_name' => $this->_sourceData['voornaam'],
@@ -305,7 +305,7 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
       if (isset($newPersoon['id']) && !empty($newPersoon['id'])) {
         $persoon->createHuishoudenRelationship($newPersoon['id'], $huishoudenId);
         $adres = new CRM_Migratie2018_Address($newPersoon['id'], $this->_logger);
-        $adres->createSharedAddress($newAdresId);
+        $adres->createSharedAddress($newAdres['id']);
         if (!empty($this->_sourceData['email'])) {
           $email = new CRM_Migratie2018_Email($newPersoon['id'], $this->_logger);
           $email->createIfNotExists($this->_sourceData['email']);
@@ -738,6 +738,17 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
     if (isset($sourceData['afkomstig']) && !empty($sourceData['afkomstig'])) {
       $bijdrageData['source'] = $sourceData['afkomstig'];
     }
+    if (isset($sourceData['ontvangstdatum']) && !empty($sourceData['ontvangstdatum'])) {
+      try {
+        $ontvangstDatum = new DateTime($sourceData['ontvangstdatum']);
+        $bijdrageData['receive_date'] = $ontvangstDatum->format('d-m-Y') . '00:00:00';
+      }
+      catch (Exception $ex) {
+        $this->_logger->logMessages('Waarschuwing', E::ts('Ontvangstdatum ') . $sourceData['ontvangstdatum']
+          . E::ts(' kan niet omgezet worden, datum van vandaag wordt gebruikt voor gift bij lid met contact ID ')
+          . $contactId);
+      }
+    }
     if (isset($sourceData['bedrag']) && !empty($sourceData['bedrag'])) {
       $bijdrageData['total_amount'] = (float) $sourceData['bedrag'];
       try {
@@ -799,7 +810,7 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
     if ($huishoudenId) {
       $adres = new CRM_Migratie2018_Address($huishoudenId, $this->_logger);
       $adres->prepareFileMakerAdresData($sourceData);
-      $newAdresId = $adres->create();
+      $newAdres = $adres->create();
       $persoon = new CRM_Migratie2018_Contact('Individual', $this->_logger);
       $persoonData = [
         'first_name' => $sourceData['voornaam'],
@@ -809,7 +820,7 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
       $newPersoon = $persoon->create();
       $persoon->createHuishoudenRelationship($newPersoon['id'], $huishoudenId);
       $adres = new CRM_Migratie2018_Address($newPersoon['id'], $this->_logger);
-      $adres->createSharedAddress($newAdresId['id']);
+      $adres->createSharedAddress($newAdres['id']);
       if (!empty($sourceData['email'])) {
         $email = new CRM_Migratie2018_Email($newPersoon['id'], $this->_logger);
         $email->createIfNotExists($sourceData['email']);
