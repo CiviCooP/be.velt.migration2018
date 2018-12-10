@@ -533,6 +533,7 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
   private function prepareMandaatData($contactId) {
     $mandaatData = [];
     if (!empty($contactId)) {
+      $mandaatData['creditor_id'] = Civi::settings()->get('batching_default_creditor');
       $mandaatData['contact_id'] = $contactId;
       $mandaatData['source'] = 'Migratie domiciliëringen uit FileMaker';
       if (!empty($this->_sourceData['iban'])) {
@@ -555,8 +556,8 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
           . $this->_sourceData['lidnummer'] . E::ts(', mandaat start datum op 1 jan 2018 gezet'));
         $mandaatData['date'] = '20180101';
       }
-      $mandaatData['frequency_unit'] = CRM_Migratie2018_Config::singleton()->getYearlyFreqeuncyUnit();
-      $mandaatData['frequency_interval'] = 1;
+      $mandaatData['frequency_unit'] = CRM_Migratie2018_Config::singleton()->getMonthlyYearlyFrequencyUnit();
+      $mandaatData['frequency_interval'] = 12;
       if (!empty($this->_sourceData['tekendatum'])) {
         $tekenDatum = new DateTime($this->_sourceData['tekendatum']);
         $mandaatData['signature_date'] = $tekenDatum->format('Ymd');

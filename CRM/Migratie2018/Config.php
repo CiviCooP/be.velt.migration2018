@@ -15,7 +15,7 @@ class CRM_Migratie2018_Config {
   static private $_singleton = NULL;
 
   // property voor mandaten
-  private $_yearlyFrequencyUnit = NULL;
+  private $_monthlyFrequencyUnit = NULL;
   private $_recurType = NULL;
   private $_recurStatus = NULL;
   private $_newMembershipStatusId = NULL;
@@ -56,9 +56,9 @@ class CRM_Migratie2018_Config {
       throw new API_Exception(E::ts('Kon geen option value in groep contribution_status vinden met name Completed in ') . __METHOD__);
     }
     try {
-      $this->_yearlyFrequencyUnit = (string) civicrm_api3('OptionValue', 'getvalue', [
+      $this->_monthlyFrequencyUnit = (string) civicrm_api3('OptionValue', 'getvalue', [
         'option_group_id' => 'recur_frequency_units',
-        'name' => 'year',
+        'name' => 'month',
         'return' => 'value',
       ]);
     }
@@ -161,8 +161,8 @@ class CRM_Migratie2018_Config {
    *
    * @return string
    */
-  public function getYearlyFreqeuncyUnit() {
-    return $this->_yearlyFrequencyUnit;
+  public function getMonthlyYearlyFrequencyUnit() {
+    return $this->_monthlyFrequencyUnit;
   }
 
   /**
