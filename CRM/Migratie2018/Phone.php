@@ -64,7 +64,6 @@ class CRM_Migratie2018_Phone {
           }
           break;
         case 1:
-          $this->_logger->logMessage('Waarschuwing', 'Telefoon ' .$phone . ' bestaat al voor contact ' .$this->_contactId . ', niet toegevoegd');
           return FALSE;
           break;
         default:

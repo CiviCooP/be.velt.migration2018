@@ -534,6 +534,7 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
     $mandaatData = [];
     if (!empty($contactId)) {
       $mandaatData['creditor_id'] = Civi::settings()->get('batching_default_creditor');
+      $mandaatData['financial_type_id'] = CRM_Migratie2018_Config::singleton()->getMembershipFinancialTypeId();
       $mandaatData['contact_id'] = $contactId;
       $mandaatData['source'] = 'Migratie domiciliëringen uit FileMaker';
       if (!empty($this->_sourceData['iban'])) {
@@ -565,6 +566,7 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
       $mandaatData['type'] = CRM_Migratie2018_Config::singleton()->getRecurType();
       $mandaatData['status'] = CRM_Migratie2018_Config::singleton()->getRecurStatus();
       $mandaatData['amount'] = CRM_Migratie2018_Config::singleton()->getAdresMembershipFee();
+      $mandaatData['cycle_day'] = Civi::settings()->get('cycledays');
       // werk eventueel begindatum lidmaatschap bij met mandaat startdatum
       $this->bijwerkenLidmaatschapStartDatum($contactId, $mandaatData['date']);
     }

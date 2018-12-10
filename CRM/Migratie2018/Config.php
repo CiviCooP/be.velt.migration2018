@@ -65,13 +65,22 @@ class CRM_Migratie2018_Config {
     catch (CiviCRM_API3_Exception $ex) {
       throw new API_Exception(E::ts('Kon geen option value in groep recur_frequency_units vinden met name year in ') . __METHOD__);
     }
+    // Standaard moet financieel type Contributie zijn, als niet gevonden kijken of Member Dues wel bestaat
     $query = "SELECT id FROM civicrm_financial_type WHERE name = %1";
     $contributieType = CRM_Core_DAO::singleValueQuery($query, [1 => ['Contributie', 'String']]);
     if ($contributieType) {
       $this->_membershipFinancialTypeId = (int) $contributieType;
     }
     else {
-      throw new API_Exception(E::ts('Kon geen financieel type Contributie vinden in ') . __METHOD__);
+      $query = "SELECT id FROM civicrm_financial_type WHERE name = %1";
+      $contributieType = CRM_Core_DAO::singleValueQuery($query, [1 => ['Member Dues', 'String']]);
+      if ($contributieType) {
+        $this->_membershipFinancialTypeId = (int) $contributieType;
+      }
+      else {
+
+        throw new API_Exception(E::ts('Kon geen financieel type Contributie vinden in ') . __METHOD__);
+      }
     }
     $query = "SELECT minimum_fee FROM civicrm_membership_type WHERE name = %1 LIMIT 1";
     $fee = CRM_Core_DAO::singleValueQuery($query, [1 => ['Adreslid', 'String']]);
