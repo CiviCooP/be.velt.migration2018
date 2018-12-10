@@ -154,11 +154,19 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
    * Method om personen op te halen
    */
   private function getPersonen() {
-    $query = "SELECT * FROM velt_migratie_2018.migratie_persoon WHERE lidmaatschap_id = %1";
+    $query = "SELECT * FROM velt_migratie_2018.migratie_persoon WHERE lidmaatschap_id = %1 ORDER BY id ASC";
     $dao = CRM_Core_DAO::executeQuery($query, [1 => [$this->_sourceData['lidmaatschap_id'], 'Integer']]);
     $achterNamen = [];
     $count = 0;
+    $eerstePersoon = TRUE;
     while ($dao->fetch()) {
+      if ($eerstePersoon) {
+        $dao->relationship_type_id = CRM_Migratie2018_Config::singleton()->getHoofdRelatieTypeId();
+        $eerstePersoon = FALSE;
+      }
+      else {
+        $dao->relationship_type_id = CRM_Migratie2018_Config::singleton()->getLidRelatieTypeId();
+      }
       $this->_persoonsData[] = CRM_Veltbasis_Utils::moveDaoToArray($dao);
       if ($count < 2) {
         $count++;
@@ -185,7 +193,7 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
         $persoon->preparePersoonData($migratiePersoon);
         $newPersoon = $persoon->create();
         if (isset($newPersoon['id'])) {
-          $persoon->createHuishoudenRelationship($newPersoon['id'], $this->_huishoudenId);
+          $persoon->createHuishoudenRelationship($newPersoon['id'], $migratiePersoon['relationship_type_id'], $this->_huishoudenId);
           $adres = new CRM_Migratie2018_Address($newPersoon['id'], $this->_logger);
           $adres->createSharedAddress($this->_adresId);
           if (!empty($migratiePersoon['email'])) {
@@ -303,7 +311,8 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
       $persoon->preparePersoonData($persoonData);
       $newPersoon = $persoon->create();
       if (isset($newPersoon['id']) && !empty($newPersoon['id'])) {
-        $persoon->createHuishoudenRelationship($newPersoon['id'], $huishoudenId);
+        $relationshipTypeId = CRM_Migratie2018_Config::singleton()->getHoofdRelatieTypeId();
+        $persoon->createHuishoudenRelationship($newPersoon['id'],$relationshipTypeId, $huishoudenId);
         $adres = new CRM_Migratie2018_Address($newPersoon['id'], $this->_logger);
         $adres->createSharedAddress($newAdres['id']);
         if (!empty($this->_sourceData['email'])) {
@@ -821,7 +830,8 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
       ];
       $persoon->preparePersoonData($persoonData);
       $newPersoon = $persoon->create();
-      $persoon->createHuishoudenRelationship($newPersoon['id'], $huishoudenId);
+      $relationshipTypeId = CRM_Migratie2018_Config::singleton()->getHoofdRelatieTypeId();
+      $persoon->createHuishoudenRelationship($newPersoon['id'], $relationshipTypeId, $huishoudenId);
       $adres = new CRM_Migratie2018_Address($newPersoon['id'], $this->_logger);
       $adres->createSharedAddress($newAdres['id']);
       if (!empty($sourceData['email'])) {

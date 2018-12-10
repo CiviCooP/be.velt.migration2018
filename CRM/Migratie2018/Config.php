@@ -26,6 +26,8 @@ class CRM_Migratie2018_Config {
   private $_adresMembershipFee = NULL;
   private $_completedContributionStatusId = NULL;
   private $_sepaDDRecurringInstrumentId = NULL;
+  private $_hoofdRelatieTypeId = NULL;
+  private $_lidRelatieTypeId = NULL;
 
   /**
    * CRM_Migratie2018_Config constructor.
@@ -91,7 +93,7 @@ class CRM_Migratie2018_Config {
       throw new API_Exception(E::ts('Kon geen fee vinden voor lidmaatschapstype met name Adreslid in ') . __METHOD__);
     }
     $this->setMembershipStatus();
-
+    $this->setRelationshipTypes();
   }
 
   /**
@@ -193,6 +195,24 @@ class CRM_Migratie2018_Config {
   }
 
   /**
+   * Getter voor hoofd van huishouden relatie type id
+   *
+   * @return null
+   */
+  public function getHoofdRelatieTypeId() {
+    return $this->_hoofdRelatieTypeId;
+  }
+
+  /**
+   * Getter voor lid van huishouden relatie type id
+   *
+   * @return null
+   */
+  public function getLidRelatieTypeId() {
+    return $this->_lidRelatieTypeId;
+  }
+
+  /**
    * Method om membership status vast te houden
    */
   private function setMembershipStatus() {
@@ -215,6 +235,33 @@ class CRM_Migratie2018_Config {
           $this->_newMembershipStatusId = $dao->id;
           break;
       }
+    }
+  }
+
+  /**
+   * Method om relatietypes in te stellen
+   *
+   * @throws API_Exception
+   */
+  private function setRelationshipTypes() {
+    try {
+      $result = civicrm_api3('RelationshipType', 'get', [
+        'sequential' => 1,
+        'name_a_b' => ['IN' => ["Head of Household for", "Household Member of"]],
+      ]);
+      foreach ($result['values'] as $relationshipType) {
+        switch ($relationshipType['name_a_b']) {
+          case 'Head of Household for':
+            $this->_hoofdRelatieTypeId = $relationshipType['id'];
+            break;
+          case 'Household Member of':
+            $this->_lidRelatieTypeId = $relationshipType['id'];
+            break;
+        }
+      }
+    }
+    catch (CiviCRM_API3_Exception $ex) {
+      throw new API_Exception(E::ts('Could not find a relationship type with name_a_b Head of Househod for and/or Household Member of, error from API RelationshipType get: ') . $ex->getMessage());
     }
   }
 

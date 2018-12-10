@@ -69,14 +69,16 @@ class CRM_Migratie2018_Contact {
    * Method om relatie tussen persoon en huishouden toe te voegen
    *
    * @param $individualId
+   * @param $relationshipTypeId
    * @param $huishoudenId
    */
-  public function createHuishoudenRelationship($individualId, $huishoudenId) {
+  public function createHuishoudenRelationship($individualId, $relationshipTypeId, $huishoudenId) {
+    Civi::log()->debug(E::ts('individual id is ' . $individualId . 'met relatie type ' . $relationshipTypeId . ' en huishouden id ' . $huishoudenId));
     // check eerst of relatie al bestaat (via sql ivm performance)
     if (!empty($individualId) && !empty($huishoudenId)) {
       $query = "SELECT COUNT(*) FROM civicrm_relationship WHERE relationship_type_id = %1 AND contact_id_a = %2 AND contact_id_b = %3";
       $count = CRM_Core_DAO::singleValueQuery($query, [
-        1 => [CRM_Veltbasis_Config::singleton()->getLidHuishoudenRelationshipType('id'), 'Integer'],
+        1 => [$relationshipTypeId, 'Integer'],
         2 => [$individualId, 'Integer'],
         3 => [$huishoudenId, 'Integer'],
       ]);
@@ -84,7 +86,7 @@ class CRM_Migratie2018_Contact {
         case 0:
           try {
             civicrm_api3('Relationship', 'create', [
-              'relationship_type_id' => CRM_Veltbasis_Config::singleton()->getLidHuishoudenRelationshipType('id'),
+              'relationship_type_id' => $relationshipTypeId,
               'is_active' => 1,
               'contact_id_a'=> $individualId,
               'contact_id_b' => $huishoudenId,
@@ -96,11 +98,11 @@ class CRM_Migratie2018_Contact {
           }
           break;
         case 1:
-          $this->_logger->logMessage('Waarschuwing', 'Er is al een lid huishouden relatie tussen persoon ' . $individualId .
+          $this->_logger->logMessage('Waarschuwing', 'Er is al een lid of hoofd huishouden relatie tussen persoon ' . $individualId .
             ' en huishouden ' . $huishoudenId . 'geen nieuwe toegevoegd.');
           break;
         default:
-          $this->_logger->logMessage('Fout', 'Er zijn al meerdere lid huishouden relaties tussen persoon ' . $individualId .
+          $this->_logger->logMessage('Fout', 'Er zijn al meerdere lid of hoofd huishouden relaties tussen persoon ' . $individualId .
             ' en huishouden ' . $huishoudenId . ', zoek dit handmatig uit!');
           break;
       }
