@@ -73,7 +73,6 @@ class CRM_Migratie2018_Contact {
    * @param $huishoudenId
    */
   public function createHuishoudenRelationship($individualId, $relationshipTypeId, $huishoudenId) {
-    Civi::log()->debug(E::ts('individual id is ' . $individualId . 'met relatie type ' . $relationshipTypeId . ' en huishouden id ' . $huishoudenId));
     // check eerst of relatie al bestaat (via sql ivm performance)
     if (!empty($individualId) && !empty($huishoudenId)) {
       $query = "SELECT COUNT(*) FROM civicrm_relationship WHERE relationship_type_id = %1 AND contact_id_a = %2 AND contact_id_b = %3";

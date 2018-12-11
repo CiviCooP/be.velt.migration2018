@@ -194,8 +194,8 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
         $newPersoon = $persoon->create();
         if (isset($newPersoon['id'])) {
           $persoon->createHuishoudenRelationship($newPersoon['id'], $migratiePersoon['relationship_type_id'], $this->_huishoudenId);
-          $adres = new CRM_Migratie2018_Address($newPersoon['id'], $this->_logger);
-          $adres->createSharedAddress($this->_adresId);
+          //$adres = new CRM_Migratie2018_Address($newPersoon['id'], $this->_logger);
+          //$adres->createSharedAddress($this->_adresId);
           if (!empty($migratiePersoon['email'])) {
             $email = new CRM_Migratie2018_Email($newPersoon['id'], $this->_logger);
             $email->createIfNotExists($migratiePersoon['email']);
