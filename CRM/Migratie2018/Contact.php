@@ -157,7 +157,7 @@ class CRM_Migratie2018_Contact {
     if (isset($this->_contactData['afdeling_id'])) {
       $customFields = CRM_Veltbasis_Config::singleton()->getHistHuishoudenCustomGroup('custom_fields');
       foreach ($customFields as $customField) {
-        if ($customField['name'] == 'velt_oud_hh_afd_id') {
+        if ($customField['name'] == 'vhhd_historisch_afdelingsnummer') {
           $customFieldId = 'custom_'.$customField['id'];
           $this->_contactData[$customFieldId] = $this->_contactData['afdeling_id'];
           unset($this->_contactData['afdeling_id']);

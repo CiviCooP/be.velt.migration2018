@@ -91,7 +91,7 @@ class CRM_Migratie2018_Membership {
     try {
       $customFieldId = civicrm_api3('CustomField', 'getvalue', [
         'return' => "id",
-        'name' => "velt_oud_lid_id",
+        'name' => "velt_historisch_lid_id",
         'custom_group_id' => "velt_lid_data",
       ]);
       $this->_historischCustomField = 'custom_'.$customFieldId;
