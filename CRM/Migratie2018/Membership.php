@@ -222,7 +222,6 @@ class CRM_Migratie2018_Membership {
     switch ($count) {
       case 0:
         try {
-          Civi::log()->debug('membership data is ' . serialize($this->_lidData));
           $created = civicrm_api3('Membership', 'create', $this->_lidData);
           $this->_membershipId = $created['id'];
           // als current ook betaling aanmaken

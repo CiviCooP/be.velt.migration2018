@@ -261,7 +261,7 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
   private function getContactIdMetLidId($lidId) {
     $lidCustomGroup = CRM_Veltbasis_Config::singleton()->getHistLidCustomGroup();
     foreach ($lidCustomGroup['custom_fields'] as $customField) {
-      if ($customField['name'] == 'velt_oud_lid_id') {
+      if ($customField['name'] == 'vld_historisch_lid_id') {
         $oudLidColumn = $customField['column_name'];
       }
     }
@@ -375,7 +375,7 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
     // kijk of lidnummer voorkomt en zo ja, zet einddatum naar vervaldatum uit brondata
     $lidCustomGroup = CRM_Veltbasis_Config::singleton()->getHistLidCustomGroup();
     foreach ($lidCustomGroup['custom_fields'] as $customField) {
-      if ($customField['name'] == 'velt_oud_lid_id') {
+      if ($customField['name'] == 'vld_historisch_lid_id') {
         $oudLidColumn = $customField['column_name'];
       }
     }
@@ -467,7 +467,7 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
    * @param $contactId
    */
   private function connectMandaat($mandaatId, $contactId) {
-    $query = "UPDATE civicrm_value_velt_lid_data SET velt_mandaat_id = %1 WHERE velt_oud_lid_id = %2";
+    $query = "UPDATE civicrm_value_velt_lid_data SET velt_mandaat_id = %1 WHERE vld_historisch_lid_id = %2";
     CRM_Core_DAO::executeQuery($query, [
       1 => [$mandaatId, 'Integer'],
       2 => [$this->_sourceData['lidnummer'], 'String'],
@@ -482,7 +482,7 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
    */
   private function createMandaatPayment($mandaat, $contactId) {
     // eerst bestaande membership betalingen verwijderen
-    $query = "SELECT entity_id FROM civicrm_value_velt_lid_data WHERE velt_oud_lid_id = %1 LIMIT 1";
+    $query = "SELECT entity_id FROM civicrm_value_velt_lid_data WHERE vld_historisch_lid_id = %1 LIMIT 1";
     $membershipId = CRM_Core_DAO::singleValueQuery($query, [1 => [$this->_sourceData['lidnummer'], 'String']]);
     if ($membershipId) {
       $payQuery = "SELECT contribution_id FROM civicrm_membership_payment WHERE membership_id = %1";
