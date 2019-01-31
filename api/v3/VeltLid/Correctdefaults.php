@@ -11,10 +11,6 @@ use CRM_Migratie2018_ExtensionUtil as E;
  * @throws API_Exception
  */
 function civicrm_api3_velt_lid_Correctdefaults($params) {
-  // tabel leegmaken to be sure
-  CRM_Core_DAO::executeQuery('TRUNCATE TABLE civicrm_value_velt_seizoenen_post');
-  $lidDataTableName = 'civicrm_value_velt_lid_data';
-  $herkomstColumnName = 'vld_herkomst';
   try {
     $herkomst = (int) civicrm_api3('OptionValue', 'getvalue', [
       'option_group_id' => 'velt_herkomst_lidmaatschap',

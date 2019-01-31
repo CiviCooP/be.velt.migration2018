@@ -10,6 +10,7 @@ use CRM_Migratie2018_ExtensionUtil as E;
  * @throws API_Exception
  */
 function civicrm_api3_persoon_Fixaddress($params) {
+  set_time_limit(0);
   // haal de ids van het huishouden en hun adres op
   $queryHh = "SELECT hh.id AS huishouden_id, adr.id AS adres_id 
     FROM civicrm_contact AS hh JOIN civicrm_address AS adr ON hh.id = adr.contact_id AND adr.is_primary = %1
