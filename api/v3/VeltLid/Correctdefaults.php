@@ -1,4 +1,5 @@
 <?php
+use CRM_Migratie2018_ExtensionUtil as E;
 
 /**
  * VeltLid.Correctdefaults API
@@ -39,7 +40,7 @@ function civicrm_api3_velt_lid_Correctdefaults($params) {
     }
   }
   catch (CiviCRM_API3_Exception $ex) {
-    throw new API_Exception('Kon geen option value voor herkomst eigen aanmelding vinden!');
+  throw new API_Exception(E::ts('Kon geen option value voor herkomst eigen aanmelding vinden!'));
   }
   return civicrm_api3_create_success([], $params, 'VeltLid', 'correctdefaults');
 }

@@ -194,8 +194,8 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
         $newPersoon = $persoon->create();
         if (isset($newPersoon['id'])) {
           $persoon->createHuishoudenRelationship($newPersoon['id'], $migratiePersoon['relationship_type_id'], $this->_huishoudenId);
-          //$adres = new CRM_Migratie2018_Address($newPersoon['id'], $this->_logger);
-          //$adres->createSharedAddress($this->_adresId);
+          $adres = new CRM_Migratie2018_Address($newPersoon['id'], $this->_logger);
+          $adres->createSharedAddress($this->_adresId);
           if (!empty($migratiePersoon['email'])) {
             $email = new CRM_Migratie2018_Email($newPersoon['id'], $this->_logger);
             $email->createIfNotExists($migratiePersoon['email']);
@@ -467,7 +467,7 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
    * @param $contactId
    */
   private function connectMandaat($mandaatId, $contactId) {
-    $query = "UPDATE civicrm_value_velt_lid_data SET velt_mandaat_id = %1 WHERE vld_historisch_lid_id = %2";
+    $query = "UPDATE civicrm_value_velt_lid_data SET velt_mandaat_id = %1 WHERE velt_historisch_lid_id = %2";
     CRM_Core_DAO::executeQuery($query, [
       1 => [$mandaatId, 'Integer'],
       2 => [$this->_sourceData['lidnummer'], 'String'],
@@ -482,7 +482,7 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
    */
   private function createMandaatPayment($mandaat, $contactId) {
     // eerst bestaande membership betalingen verwijderen
-    $query = "SELECT entity_id FROM civicrm_value_velt_lid_data WHERE vld_historisch_lid_id = %1 LIMIT 1";
+    $query = "SELECT entity_id FROM civicrm_value_velt_lid_data WHERE velt_historisch_lid_id = %1 LIMIT 1";
     $membershipId = CRM_Core_DAO::singleValueQuery($query, [1 => [$this->_sourceData['lidnummer'], 'String']]);
     if ($membershipId) {
       $payQuery = "SELECT contribution_id FROM civicrm_membership_payment WHERE membership_id = %1";
