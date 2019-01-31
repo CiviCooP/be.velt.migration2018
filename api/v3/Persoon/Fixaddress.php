@@ -14,7 +14,7 @@ function civicrm_api3_persoon_Fixaddress($params) {
   // haal de ids van het huishouden en hun adres op
   $queryHh = "SELECT hh.id AS huishouden_id, adr.id AS adres_id 
     FROM civicrm_contact AS hh JOIN civicrm_address AS adr ON hh.id = adr.contact_id AND adr.is_primary = %1
-    WHERE hh.contact_type = %2 AND hh.id NOT IN (SELECT hh_id FROM eh_tem_fixadr) LIMIT 1000";
+    WHERE hh.contact_type = %2 AND hh.id NOT IN (SELECT hh_id FROM eh_temp_fixadr) LIMIT 1000";
   $hh = CRM_Core_DAO::executeQuery($queryHh, [
     1 => [1, 'Integer'],
     2 => ['Household', 'String'],
