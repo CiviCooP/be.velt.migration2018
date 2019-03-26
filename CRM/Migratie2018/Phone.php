@@ -54,8 +54,8 @@ class CRM_Migratie2018_Phone {
               'phone' => $phone,
               'contact_id' => $this->_contactId,
               'phone_type_id' => $this->_phoneTypeId,
-              'is_primary' => CRM_Migratie2018_VeltMigratie::setIsPrimary('email', $this->_contactId),
-              'location_type_id' => $locationType->determineForContact('email', $this->_contactId),
+              'is_primary' => CRM_Migratie2018_VeltMigratie::setIsPrimary('phone', $this->_contactId),
+              'location_type_id' => $locationType->determineForContact('phone', $this->_contactId),
             ]);
             return TRUE;
           } catch (CiviCRM_API3_Exception $ex) {

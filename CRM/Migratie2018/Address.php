@@ -60,6 +60,11 @@ class CRM_Migratie2018_Address {
       $this->_addressData['street_address'] = implode(" ", $streetAddress);
     }
     $this->_addressData['city'] = $this->getCity($sourceData);
+    // als België, state/province uit area definition
+    $provincie = $this->getBelgischeProvincie($sourceData);
+    if ($provincie) {
+      $this->_addressData['state_province_id'] = $provincie;
+    }
     if (isset($sourceData['postal_code'])) {
       $this->_addressData['postal_code'] = $sourceData['postal_code'];
     }
@@ -74,6 +79,29 @@ class CRM_Migratie2018_Address {
       }
     }
     return TRUE;
+  }
+
+  /**
+   * Method om de provincie uit de area extensie te halen voor Belgische adressen
+   *
+   * @param $sourceData
+   * @return int|bool
+   */
+  public function getBelgischeProvincie($sourceData) {
+    if (isset($sourceData['country_iso']) && $sourceData['country_iso'] == 'BE') {
+      if (isset($sourceData['postal_code']) && !empty($sourceData['postal_code'])) {
+        try {
+          return (int) civicrm_api3('AreaDefinition', 'getvalue', [
+            'return' => "state_province_id",
+            'postal_code' => $sourceData['postal_code'],
+            'country_id' => 1020,
+          ]);
+        }
+        catch (CiviCRM_API3_Exception $ex) {
+        }
+      }
+    }
+    return FALSE;
   }
 
   /**

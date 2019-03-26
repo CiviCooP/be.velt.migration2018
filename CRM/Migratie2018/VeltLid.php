@@ -194,8 +194,9 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
         $newPersoon = $persoon->create();
         if (isset($newPersoon['id'])) {
           $persoon->createHuishoudenRelationship($newPersoon['id'], $migratiePersoon['relationship_type_id'], $this->_huishoudenId);
-          $adres = new CRM_Migratie2018_Address($newPersoon['id'], $this->_logger);
-          $adres->createSharedAddress($this->_adresId);
+          // issue 3958 - geen gedeeld adres meer nodig
+          //$adres = new CRM_Migratie2018_Address($newPersoon['id'], $this->_logger);
+          //$adres->createSharedAddress($this->_adresId);
           if (!empty($migratiePersoon['email'])) {
             $email = new CRM_Migratie2018_Email($newPersoon['id'], $this->_logger);
             $email->createIfNotExists($migratiePersoon['email']);
@@ -439,9 +440,10 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
       $mandaatData = $this->prepareMandaatData($contactId);
       if (!empty($mandaatData)) {
         try {
+          Civi::log()->debug('Mandaat data is nu ' . serialize($mandaatData));
           $nieuwMandaat = civicrm_api3('SepaMandate', 'createfull', $mandaatData);
           // daarna mandaat verbinden met lidmaatschap
-          $this->connectMandaat($nieuwMandaat['id'], $contactId);
+          $this->connectMandaat($nieuwMandaat['id']);
           // dan bijdrage voor lidmaatschap toevoegen en bijdrage opnemen in mandaat
           $this->createMandaatPayment($nieuwMandaat['values'][$nieuwMandaat['id']], $contactId);
           return TRUE;
@@ -466,12 +468,30 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
    * @param $mandaatId
    * @param $contactId
    */
-  private function connectMandaat($mandaatId, $contactId) {
-    $query = "UPDATE civicrm_value_velt_lid_data SET velt_mandaat_id = %1 WHERE velt_historisch_lid_id = %2";
-    CRM_Core_DAO::executeQuery($query, [
-      1 => [$mandaatId, 'Integer'],
-      2 => [$this->_sourceData['lidnummer'], 'String'],
-    ]);
+  private function connectMandaat($mandaatId) {
+    // checken of en welk mandaat veld gebruikt wordt
+    $mandaatField = NULL;
+    $mandaatSettings = Civi::settings()->get('p60_membership_settings');
+    foreach ($mandaatSettings as $settingName => $settingValue) {
+      if ($settingName == 'paid_via_field' && !empty($settingValue)) {
+        try {
+          $mandaatField = civicrm_api3('CustomField', 'getvalue', [
+            'id' => $settingValue,
+            'return' => 'column_name',
+          ]);
+        }
+        catch (CiviCRM_API3_Exception $ex) {
+          Civi::log()->error("Kon geen custom veld vinden met id " . $settingValue);
+        }
+      }
+    }
+    if ($mandaatField) {
+      $query = "UPDATE civicrm_value_velt_lid_data SET " . $mandaatField . " = %1 WHERE velt_historisch_lid_id = %2";
+      CRM_Core_DAO::executeQuery($query, [
+        1 => [$mandaatId, 'Integer'],
+        2 => [$this->_sourceData['lidnummer'], 'String'],
+      ]);
+    }
   }
 
   /**
