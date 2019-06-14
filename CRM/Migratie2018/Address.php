@@ -134,7 +134,10 @@ class CRM_Migratie2018_Address {
     if (!empty($streetAddress)) {
       $this->_addressData['street_address'] = implode(" ", $streetAddress);
     }
-    $this->_addressData['gemeente'] = $this->getCity($sourceData);
+    $this->_addressData['city'] = $this->getCity($sourceData);
+    if (empty($this->_addressData['city']) && !empty($sourceData['gemeente'])) {
+      $this->_addressData['city'] = $sourceData['gemeente'];
+    }
     if (isset($sourceData['postcode'])) {
       $this->_addressData['postal_code'] = $sourceData['postcode'];
     }

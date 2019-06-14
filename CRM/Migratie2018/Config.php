@@ -28,6 +28,8 @@ class CRM_Migratie2018_Config {
   private $_sepaDDRecurringInstrumentId = NULL;
   private $_hoofdRelatieTypeId = NULL;
   private $_lidRelatieTypeId = NULL;
+  private $_memberMandateCustomFieldId = NULL;
+  private $_memberMandateColumnName = NULL;
 
   /**
    * CRM_Migratie2018_Config constructor.
@@ -92,8 +94,27 @@ class CRM_Migratie2018_Config {
     else {
       throw new API_Exception(E::ts('Kon geen fee vinden voor lidmaatschapstype met name Adreslid in ') . __METHOD__);
     }
+    $this->setMemberMandateProperties();
     $this->setMembershipStatus();
     $this->setRelationshipTypes();
+  }
+
+  /**
+   * Getter for membership mandate custom field id
+   *
+   * @return null|int
+   */
+  public function getMemberMandateCustomFieldId() {
+    return $this->_memberMandateCustomFieldId;
+  }
+
+  /**
+   * Getter for membership mandate column name
+   *
+   * @return null|string
+   */
+  public function getMemberMandateColumnName() {
+    return $this->_memberMandateColumnName;
   }
 
   /**
@@ -262,6 +283,31 @@ class CRM_Migratie2018_Config {
     }
     catch (CiviCRM_API3_Exception $ex) {
       throw new API_Exception(E::ts('Could not find a relationship type with name_a_b Head of Househod for and/or Household Member of, error from API RelationshipType get: ') . $ex->getMessage());
+    }
+  }
+  private function setMemberMandateProperties() {
+    $p60MemberSettings = Civi::settings()->get('p60_membership_settings');
+    if ($p60MemberSettings) {
+      if (isset($p60MemberSettings['paid_via_field']) && !empty($p60MemberSettings['paid_via_field'])) {
+        $this->_memberMandateCustomFieldId = $p60MemberSettings['paid_via_field'];
+        if ($this->_memberMandateCustomFieldId) {
+          try {
+            $this->_memberMandateColumnName = civicrm_api3('CustomField', 'getvalue', [
+              'return' => 'column_name',
+              'id' => $this->_memberMandateCustomFieldId,
+            ]);
+          }
+          catch (CiviCRM_API3_Exception $ex) {
+            Civi::log()->error(E::ts('Could not find a column name for the P60 Membership Setting for Paid via Field in ' . __METHOD__));
+          }
+        }
+      }
+      else {
+        Civi::log()->error(E::ts('Could not find P60 Membership Setting for Paid via Field in ' . __METHOD__));
+      }
+    }
+    else {
+      Civi::log()->error(E::ts('Could not find P60 Membership Settings in ' . __METHOD__));
     }
   }
 

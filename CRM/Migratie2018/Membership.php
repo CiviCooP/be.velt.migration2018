@@ -290,6 +290,7 @@ class CRM_Migratie2018_Membership {
       'membership_type_id' => $this->_gratisLidType['id'],
       'is_test' => 0,
       'is_pay_later' => 0,
+      'status_id' => CRM_Migratie2018_Config::singleton()->getCurrentMembershipStatusId(),
     ];
     if (isset($sourceData['lidnummer']) && !empty($sourceData['lidnummer'])) {
       $this->_lidData[$this->_historischCustomField] = $sourceData['lidnummer'];
@@ -303,6 +304,7 @@ class CRM_Migratie2018_Membership {
     switch ($count) {
       case 0:
         try {
+          Civi::log()->debug('Lidmaatschapsdata: ' . serialize($this->_lidData));
           $created = civicrm_api3('Membership', 'create', $this->_lidData);
           $this->_membershipId = $created['id'];
           return $created;

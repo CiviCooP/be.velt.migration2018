@@ -440,7 +440,6 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
       $mandaatData = $this->prepareMandaatData($contactId);
       if (!empty($mandaatData)) {
         try {
-          Civi::log()->debug('Mandaat data is nu ' . serialize($mandaatData));
           $nieuwMandaat = civicrm_api3('SepaMandate', 'createfull', $mandaatData);
           // daarna mandaat verbinden met lidmaatschap
           $this->connectMandaat($nieuwMandaat['id']);
@@ -470,21 +469,7 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
    */
   private function connectMandaat($mandaatId) {
     // checken of en welk mandaat veld gebruikt wordt
-    $mandaatField = NULL;
-    $mandaatSettings = Civi::settings()->get('p60_membership_settings');
-    foreach ($mandaatSettings as $settingName => $settingValue) {
-      if ($settingName == 'paid_via_field' && !empty($settingValue)) {
-        try {
-          $mandaatField = civicrm_api3('CustomField', 'getvalue', [
-            'id' => $settingValue,
-            'return' => 'column_name',
-          ]);
-        }
-        catch (CiviCRM_API3_Exception $ex) {
-          Civi::log()->error("Kon geen custom veld vinden met id " . $settingValue);
-        }
-      }
-    }
+    $mandaatField = CRM_Migratie2018_Config::singleton()->getMemberMandateColumnName();
     if ($mandaatField) {
       $query = "UPDATE civicrm_value_velt_lid_data SET " . $mandaatField . " = %1 WHERE velt_historisch_lid_id = %2";
       CRM_Core_DAO::executeQuery($query, [
@@ -586,12 +571,18 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
           . $this->_sourceData['lidnummer'] . E::ts(', mandaat start datum op 1 jan 2018 gezet'));
         $mandaatData['date'] = '20180101';
       }
+      if (isset($this->_sourceData['tekendatum']) && !empty($this->_sourceData['tekendatum'])) {
+        try {
+          $tekenDatum = new DateTime($this->_sourceData['tekendatum']);
+          $mandaatData['validation_date'] = $tekenDatum->format('Ymd');
+        }
+        catch (Exception $ex) {
+          $this->_logger->logMessage(E::ts('Kon de tekendatum ') . $this->_sourceData['tekendatum']
+            . E::ts(' niet omzetten naar DateTime, niet meegenomen naar validation date van het mandaat'));
+        }
+      }
       $mandaatData['frequency_unit'] = CRM_Migratie2018_Config::singleton()->getMonthlyYearlyFrequencyUnit();
       $mandaatData['frequency_interval'] = 12;
-      if (!empty($this->_sourceData['tekendatum'])) {
-        $tekenDatum = new DateTime($this->_sourceData['tekendatum']);
-        $mandaatData['signature_date'] = $tekenDatum->format('Ymd');
-      }
       $mandaatData['type'] = CRM_Migratie2018_Config::singleton()->getRecurType();
       $mandaatData['status'] = CRM_Migratie2018_Config::singleton()->getRecurStatus();
       $mandaatData['amount'] = CRM_Migratie2018_Config::singleton()->getAdresMembershipFee();
@@ -747,6 +738,9 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
       $created = civicrm_api3('Contact', 'create', $contactData);
       $contactId = $created['id'];
       // eventueel adres toevoegen
+      $adres = new CRM_Migratie2018_Address($contactId, $this->_logger);
+      $adres->prepareFileMakerAdresData($sourceData);
+      $adres->create();
       return $contactId;
     }
     catch (CiviCRM_API3_Exception $ex) {
@@ -852,8 +846,8 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
       $newPersoon = $persoon->create();
       $relationshipTypeId = CRM_Migratie2018_Config::singleton()->getHoofdRelatieTypeId();
       $persoon->createHuishoudenRelationship($newPersoon['id'], $relationshipTypeId, $huishoudenId);
-      $adres = new CRM_Migratie2018_Address($newPersoon['id'], $this->_logger);
-      $adres->createSharedAddress($newAdres['id']);
+      //$adres = new CRM_Migratie2018_Address($newPersoon['id'], $this->_logger);
+      //$adres->createSharedAddress($newAdres['id']);
       if (!empty($sourceData['email'])) {
         $email = new CRM_Migratie2018_Email($newPersoon['id'], $this->_logger);
         $email->createIfNotExists($sourceData['email']);
