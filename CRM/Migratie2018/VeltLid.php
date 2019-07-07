@@ -361,6 +361,7 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
       // voeg archief lidmaatschap toe
       $membership = new CRM_Migratie2018_Membership($huishoudenId, $this->_logger);
       $membership->createArchiefLidmaatschap($this->_sourceData);
+      return TRUE;
     }
     else {
       $this->_logger->logMessage('Fout', E::ts('Kon geen contact en archief lidmaatschap toevoegen voor brondata ' . serialize($this->_sourceData)));
