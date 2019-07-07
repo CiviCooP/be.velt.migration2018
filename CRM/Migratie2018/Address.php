@@ -125,7 +125,7 @@ class CRM_Migratie2018_Address {
     if (isset($sourceData['straat'])) {
       $streetAddress[] = $sourceData['straat'];
     }
-    if (isset($sourceData['huisnummer']) && !empty($sourceData['huis'])) {
+    if (isset($sourceData['huisnummer']) && !empty($sourceData['huisnummer'])) {
       $streetAddress[] = (string) $sourceData['huisnummer'];
     }
     if (isset($sourceData['bus']) && !empty($sourceData['bus'])) {
