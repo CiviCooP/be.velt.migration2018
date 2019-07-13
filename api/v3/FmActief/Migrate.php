@@ -17,7 +17,7 @@ function civicrm_api3_fm_actief_Migrate($params) {
   $logCount = 0;
   $logger = new CRM_Migratie2018_Logger();
   $daoSource = CRM_Core_DAO::executeQuery('SELECT * FROM velt_migratie_2018.actief WHERE 
-    processed IS NULL OR processed = 0 LIMIT 250');
+    processed IS NULL OR processed = 0 LIMIT 200');
   while ($daoSource->fetch()) {
     $update = "UPDATE velt_migratie_2018.actief SET processed = %1 WHERE lidnummer = %2";
     CRM_Core_DAO::executeQuery($update, [
