@@ -16,7 +16,7 @@ function civicrm_api3_velt_lid_Migrate($params) {
   $createCount = 0;
   $logCount = 0;
   $logger = new CRM_Migratie2018_Logger();
-  $daoSource = CRM_Core_DAO::executeQuery('SELECT * FROM velt_migratie_2018.migratie_adres WHERE migrated IS NULL OR migrated = 0 LIMIT 10');
+  $daoSource = CRM_Core_DAO::executeQuery('SELECT * FROM velt_migratie_2018.migratie_adres WHERE migrated IS NULL OR migrated = 0 LIMIT 100');
   while ($daoSource->fetch()) {
     $veltLid = new CRM_Migratie2018_VeltLid($daoSource, $logger);
     $result = $veltLid->migrate();

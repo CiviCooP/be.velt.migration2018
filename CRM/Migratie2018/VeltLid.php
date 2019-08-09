@@ -798,9 +798,9 @@ class CRM_Migratie2018_VeltLid extends CRM_Migratie2018_VeltMigratie {
    * @return bool|int
    */
   private function createGratisContact($sourceData) {
-    // als persoon x dan huishouden en persoon anders organisatie
-    // 7 juli 2019 - acceptatie migratie: veld persoon ontbreekt, huishouden als voornaam gevuld anders organisatie
-    if (!empty($sourceData['voornaam'])) {
+    // als organisatie x dan organisatie anders huishouden en persoon
+    $sourceData['organisatie'] = strtolower($sourceData['organisatie']);
+    if ($sourceData['organisatie'] != "x") {
       $huishoudenId = $this->createGratisHousehold($sourceData);
       if ($huishoudenId) {
       return $huishoudenId;
